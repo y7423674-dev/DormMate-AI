@@ -1,0 +1,241 @@
+@import "tailwindcss";
+
+@theme inline {
+  /* PostHog Color Palette */
+  --color-olive-ink: #4d4f46;
+  --color-deep-olive: #23251d;
+  --color-posthog-orange: #8BCF5A;
+  --color-amber-gold: #F7A501;
+  --color-gold-border: #b17816;
+  --color-focus-blue: #3b82f6;
+  --color-warm-parchment: #fdfdf8;
+  --color-sage-cream: #eeefe9;
+  --color-light-sage: #e5e7e0;
+  --color-warm-tan: #d4c9b8;
+  --color-hover-white: #f4f4f4;
+  --color-muted-olive: #65675e;
+  --color-sage-placeholder: #9ea096;
+  --color-sage-border: #bfc1b7;
+  --color-light-border: #b6b7af;
+  --color-near-black: #1e1f23;
+  --color-dark-text: #111827;
+
+  /* PostHog Font Family */
+  --font-sans: 'IBM Plex Sans Variable', 'IBM Plex Sans', -apple-system, system-ui, 'Segoe UI', 'Helvetica Neue', Helvetica, Ubuntu, Roboto, Noto, Arial, sans-serif;
+  --font-mono: 'Source Code Pro', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;
+
+  /* PostHog Typography Scale */
+  --text-display-hero: 1.875rem;
+  --text-section-heading: 2.25rem;
+  --text-feature-heading: 1.5rem;
+  --text-card-heading: 1.3125rem;
+  --text-sub-heading: 1.25rem;
+  --text-body-semi: 1.125rem;
+  --text-nav-ui: 0.9375rem;
+  --text-body: 1rem;
+  --text-body-relaxed: 0.9375rem;
+  --text-caption: 0.875rem;
+  --text-small-label: 0.8125rem;
+  --text-micro: 0.75rem;
+
+  /* PostHog Border Radius */
+  --radius-2: 2px;
+  --radius-4: 4px;
+  --radius-6: 6px;
+  --radius-pill: 9999px;
+
+  /* PostHog Shadow */
+  --shadow-deep: 0px 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+@layer base {
+  html, body {
+    background-color: #F3F6EF;
+    color: #1F241E;
+    font-family: var(--font-sans);
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 1.50;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  *:focus-visible {
+    outline-color: rgba(59, 130, 246, 0.5);
+    outline-width: 2px;
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* Card variants */
+  .card-bordered {
+    background: rgba(255, 255, 255, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.76);
+    border-radius: 24px;
+    box-shadow: 0 18px 48px rgba(82, 94, 72, 0.13);
+    backdrop-filter: blur(18px);
+  }
+
+  .card-sage {
+    background: rgba(238, 245, 232, 0.78);
+    border: 1px solid rgba(255, 255, 255, 0.74);
+    border-radius: 24px;
+    box-shadow: 0 16px 38px rgba(82, 94, 72, 0.11);
+    backdrop-filter: blur(18px);
+  }
+
+  .card-shadow {
+    background: rgba(255, 255, 255, 0.78);
+    border: 1px solid rgba(255, 255, 255, 0.76);
+    border-radius: 24px;
+    box-shadow: 0 20px 48px rgba(82, 94, 72, 0.15);
+    backdrop-filter: blur(18px);
+  }
+
+  /* Button variants */
+  .btn-dark {
+    background: #20251E;
+    color: white;
+    padding: 9px 14px;
+    border-radius: 16px;
+    font-weight: 700;
+    font-size: 15px;
+    font-family: var(--font-sans);
+    border: none;
+    cursor: pointer;
+    transition: background 0.15s, box-shadow 0.15s, transform 0.15s;
+    box-shadow: 0 14px 30px rgba(32, 37, 30, 0.22);
+  }
+  .btn-dark:hover { background: #30372D; color: white; }
+  .btn-dark:active { transform: translateY(1px); }
+
+  .btn-sage {
+    background: rgba(238, 245, 232, 0.9);
+    color: #4F5844;
+    padding: 7px 11px;
+    border-radius: 15px;
+    font-weight: 700;
+    font-size: 15px;
+    font-family: var(--font-sans);
+    border: 1px solid #E3E8DD;
+    cursor: pointer;
+    transition: color 0.15s, background 0.15s, border-color 0.15s;
+  }
+  .btn-sage:hover {
+    color: #20211C;
+    background: rgba(255, 255, 255, 0.86);
+    border-color: #A7D86D;
+  }
+
+  .btn-orange {
+    background: #A7D86D;
+    color: #1F241E;
+    padding: 10px 16px;
+    border-radius: 16px;
+    font-weight: 700;
+    font-size: 15px;
+    font-family: var(--font-sans);
+    border: none;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .btn-orange:hover { opacity: 0.85; }
+
+  .btn-tan {
+    background: rgba(238, 245, 232, 0.9);
+    color: #4F5844;
+    padding: 10px 16px;
+    border-radius: 16px;
+    font-weight: 600;
+    font-size: 15px;
+    font-family: var(--font-sans);
+    border: none;
+    cursor: pointer;
+    transition: color 0.15s;
+  }
+  .btn-tan:hover { color: #1F241E; }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--color-olive-ink);
+    padding: 4px 8px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 500;
+    font-family: var(--font-sans);
+    border: none;
+    cursor: pointer;
+    transition: color 0.15s;
+  }
+  .btn-ghost:hover { color: var(--color-posthog-orange); }
+
+  /* Input */
+  .input-default {
+    background: rgba(246, 248, 242, 0.9);
+    color: #1F241E;
+    padding: 9px 12px;
+    border-radius: 18px;
+    border: 1px solid #E3E8DD;
+    font-size: 15px;
+    font-family: var(--font-sans);
+    outline: none;
+    width: 100%;
+    transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+  }
+  .input-default::placeholder { color: #A4AA9E; }
+  .input-default:focus {
+    background: white;
+    border-color: #A7D86D;
+    box-shadow: 0 0 0 5px rgba(167, 216, 109, 0.18);
+  }
+
+  /* Badge */
+  .badge-pill {
+    border-radius: var(--radius-pill);
+    font-size: 13px;
+    font-weight: 700;
+    padding: 3px 10px;
+    line-height: 1.50;
+    display: inline-flex;
+    align-items: center;
+    font-family: var(--font-sans);
+  }
+
+  .icon-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    color: currentColor;
+    font-size: 20px;
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  .icon-badge-sm {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    color: currentColor;
+    font-size: 17px;
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  .icon-badge-dark {
+    color: currentColor;
+  }
+
+  /* Mobile shell */
+  .mobile-shell {
+    max-width: 430px;
+    margin: 0 auto;
+    min-height: 100vh;
+    position: relative;
+    background: var(--color-warm-parchment);
+  }
+}
