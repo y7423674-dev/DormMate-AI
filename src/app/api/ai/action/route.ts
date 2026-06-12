@@ -42,7 +42,29 @@ function buildSystemPrompt(
    格式：{ "type": "add_expense", "title": "费用标题", "amount": 总金额, "creator": "付款人", "splitMethod": "人均", "perPerson": 人均金额, "note": "备注" }
    用途：用户说花了XX元充电费/买日用品等，自动记账并计算人均金额（金额÷舍友人数）
 
-6. add_ai_log — 记录本次AI交互（每次回复都必须包含此操作）
+6. complete_duty — 标记当前值日完成
+   格式：{ "type": "complete_duty", "user": "完成值日的舍友昵称" }
+
+7. confirm_expense — 标记用户已确认/已完成缴费
+   格式：{ "type": "confirm_expense", "title": "费用标题(可选)", "user": "确认人" }
+   用途：用户说我已缴费/我确认电费/水电已付等。没有具体标题时确认最近一条相关费用。
+
+8. delete_expense — 删除费用记录（仅舍长会生效）
+   格式：{ "type": "delete_expense", "title": "费用标题", "user": "发起删除的人" }
+
+9. add_announcement — 发布公告
+   格式：{ "type": "add_announcement", "title": "公告标题", "content": "公告内容", "author": "发布人", "pinned": true }
+
+10. mark_announcement_read — 标记公告已读
+   格式：{ "type": "mark_announcement_read", "title": "公告标题(可选)" }
+
+11. add_laundry_slot — 登记晾晒
+   格式：{ "type": "add_laundry_slot", "user": "晾晒人", "itemType": "衣物类型", "collectTime": "收衣时间，如22:00" }
+
+12. collect_laundry — 确认收衣，释放阳台位置
+   格式：{ "type": "collect_laundry", "user": "收衣人" }
+
+13. add_ai_log — 记录本次AI交互（每次回复都必须包含此操作）
    格式：{ "type": "add_ai_log", "input": "用户原始输入", "reply": "你的回复文字" }
 
 你必须返回以下JSON格式，不要返回任何其他内容：
@@ -55,6 +77,11 @@ function buildSystemPrompt(
 - user 字段使用舍友昵称（来自舍友列表），不要使用 id
 - 当前说话人是 "${userName}"，除非用户明确提到其他舍友名字，否则操作对象默认是说话人
 - 如果用户提到金额，自动计算人均金额（总金额 ÷ ${memberCount}），四舍五入取整
+- 如果用户说“发公告/通知大家/提醒大家”，使用 add_announcement；标题可以从内容中提炼，内容保留用户原意
+- 如果用户说“我要晾晒/晒衣服/晾床单”，使用 add_laundry_slot；未给收衣时间时默认 22:00，未给衣物类型时默认“轻薄衣物”
+- 如果用户说“收衣/衣服收了”，使用 collect_laundry
+- 如果用户说“我已完成值日/扫完了”，使用 complete_duty
+- 如果用户说“已缴费/已确认/我付了”，使用 confirm_expense
 - 如果用户提到的舍友名不在列表中，忽略该操作
 - reply 要简洁，直接列出更新内容，用编号格式如 "1. xxx 2. xxx"
 - 只返回JSON，不要返回markdown、解释文字或其他内容`;

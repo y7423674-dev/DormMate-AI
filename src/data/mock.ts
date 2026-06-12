@@ -13,7 +13,7 @@ export function createDefaultDormState(dormCode: string): DormState {
   return {
     dormCode,
     members: [
-      { id: "1", name: "小李", role: "leader", status: "熟睡", avatarInitial: "李" },
+      { id: "1", name: "小李", role: "member", status: "熟睡", avatarInitial: "李" },
       { id: "2", name: "小王", role: "member", status: "晚归", avatarInitial: "王" },
       { id: "3", name: "小陈", role: "member", status: "勿扰", avatarInitial: "陈" },
       { id: "4", name: "小林", role: "member", status: "晚起", avatarInitial: "林" },

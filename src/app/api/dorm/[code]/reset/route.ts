@@ -19,6 +19,7 @@ export async function POST(
   resetState.members = preservedMembers.map((member, index) => ({
     ...member,
     id: member.id || String(index + 1),
+    role: "member",
     avatarInitial: member.avatarInitial || member.name.slice(-1),
   }));
   resetState.utility = {

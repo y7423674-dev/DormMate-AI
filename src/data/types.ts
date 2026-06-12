@@ -132,8 +132,15 @@ export type AiAction =
   | { type: "update_status"; user: string; status: string }
   | { type: "change_duty"; date: string; from?: string; to: string }
   | { type: "add_makeup_task"; date: string; user: string }
+  | { type: "complete_duty"; user: string }
   | { type: "update_utility"; total: number; memberCount: number }
   | { type: "add_expense"; title: string; amount: number; creator: string; splitMethod: string; perPerson: number; note: string }
+  | { type: "confirm_expense"; expenseId?: string; title?: string; user: string }
+  | { type: "delete_expense"; expenseId?: string; title?: string; user: string }
+  | { type: "add_announcement"; title: string; content: string; author: string; pinned?: boolean }
+  | { type: "mark_announcement_read"; announcementId?: string; title?: string }
+  | { type: "add_laundry_slot"; user: string; itemType: string; collectTime: string }
+  | { type: "collect_laundry"; user: string; slotIndex?: number }
   | { type: "add_ai_log"; input: string; reply: string };
 
 export type AiResponse = {

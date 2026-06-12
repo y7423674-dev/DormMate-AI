@@ -25,28 +25,29 @@ export function useDorm() {
 
 export function DormProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<DormState | null>(null);
-  const [session, setSession] = useState<UserSession | null>(null);
+  const [session, setSession] = useState<UserSession | null>(() =>
+    typeof window === "undefined" ? null : loadUserSession()
+  );
+  const dormCode = state?.dormCode;
 
   // Load session from localStorage and fetch state from server on mount
   useEffect(() => {
-    const savedSession = loadUserSession();
-    if (savedSession) {
-      setSession(savedSession);
-      fetch(`/api/dorm/${savedSession.dormCode}`)
+    if (session) {
+      fetch(`/api/dorm/${session.dormCode}`)
         .then((r) => r.json())
         .then((data) => setState(data as DormState))
         .catch(() => setState(null));
     }
-  }, []);
+  }, [session]);
 
   // BroadcastChannel for multi-tab sync
   useEffect(() => {
-    if (!state) return;
+    if (!dormCode) return;
     initBroadcast((remoteState) => {
       setState(remoteState);
     });
     return () => { closeBroadcast(); };
-  }, [state?.dormCode]);
+  }, [dormCode]);
 
   const refreshState = useCallback(async () => {
     if (!session) return;
