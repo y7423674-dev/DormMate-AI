@@ -1,4 +1,5 @@
-import type { DormState, AiAction, ExpenseRecord } from "@/data/types";
+import type { DormState, AiAction, ExpenseRecord, ExpenseShare } from "@/data/types";
+import { formatMonthDay, toDateISO } from "@/lib/dateUtils";
 
 function roundMoney(value: number) {
   return Math.round(value * 100) / 100;
@@ -11,11 +12,6 @@ function formatDateTime() {
   const hour = String(now.getHours()).padStart(2, "0");
   const minute = String(now.getMinutes()).padStart(2, "0");
   return `${month}/${day} ${hour}:${minute}`;
-}
-
-function formatExpenseDate() {
-  const now = new Date();
-  return `${now.getMonth() + 1}月${now.getDate()}日`;
 }
 
 function findExpenseIndex(state: DormState, expenseId?: string, title?: string) {
@@ -100,19 +96,36 @@ export function applyAiActions(state: DormState, actions: AiAction[]): DormState
       case "add_expense": {
         const memberCount = Math.max(newState.members.length, 1);
         const isCreatorOnly = action.splitMethod === "creatorOnly" || action.splitMethod === "个人支付";
+        const isRatio = action.splitMethod === "ratio" || action.splitMethod.includes("比例");
         const amount = roundMoney(action.amount);
+        const ratioShares: ExpenseShare[] = isRatio
+          ? (action.splitShares || [])
+              .filter((share) => newState.members.some((member) => member.name === share.member))
+              .map((share) => ({
+                member: share.member,
+                ratio: roundMoney(share.ratio),
+                amount: roundMoney(amount * (share.ratio / 100)),
+              }))
+              .filter((share) => share.ratio > 0)
+          : [];
+        const ratioTotal = roundMoney(ratioShares.reduce((sum, share) => sum + share.ratio, 0));
+        if (isRatio && (ratioShares.length === 0 || ratioTotal > 100)) {
+          break;
+        }
         const newExpense: ExpenseRecord = {
           id: `exp-${Date.now()}`,
           title: action.title,
           amount,
           creator: action.creator,
-          splitMethod: isCreatorOnly ? "个人支付" : `${memberCount}人平摊`,
-          perPerson: isCreatorOnly ? amount : roundMoney(amount / memberCount),
+          splitMethod: isCreatorOnly ? "个人支付" : isRatio ? `按比例收费（${ratioTotal}%）` : `${memberCount}人平摊`,
+          perPerson: isCreatorOnly ? amount : isRatio ? 0 : roundMoney(amount / memberCount),
+          splitShares: isRatio ? ratioShares : undefined,
           note: action.note || "无备注",
-          date: formatExpenseDate(),
+          date: formatMonthDay(),
+          dateISO: toDateISO(),
           confirmations: newState.members.map((m) => ({
             member: m.name,
-            confirmed: isCreatorOnly || m.name === action.creator,
+            confirmed: isCreatorOnly || m.name === action.creator || (isRatio && !ratioShares.some((share) => share.member === m.name)),
           })),
         };
         newState.expenses = [newExpense, ...newState.expenses];

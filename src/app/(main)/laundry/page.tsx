@@ -1,16 +1,38 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useDorm } from "@/app/DormProvider";
 import type { DormState } from "@/data/types";
 import AppIcon, { type AppIconName } from "@/components/AppIcon";
 import PageHeader from "@/components/PageHeader";
 import CardShell from "@/components/CardShell";
 import StatusBadge from "@/components/StatusBadge";
-import { laundryForecastDays } from "@/data/mock";
+import { addDays, formatShortDate, toDateISO } from "@/lib/dateUtils";
+
+type WeatherForecast = {
+  source: string;
+  current: {
+    weather: string;
+    weatherIcon: AppIconName;
+    temperature: string;
+    index: number;
+    suitable: boolean;
+    suggestion: string;
+    dryingHours: string;
+  };
+  days: {
+    label: string;
+    date: string;
+    icon: AppIconName;
+    weather: string;
+    temperature: string;
+  }[];
+};
 
 export default function LaundryPage() {
   const { state, apiPost, session } = useDorm();
+  const [weatherForecast, setWeatherForecast] = useState<WeatherForecast | null>(null);
+  const [weatherLoading, setWeatherLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showCollectConfirm, setShowCollectConfirm] = useState(false);
   const [dryType, setDryType] = useState("轻薄衣物");
@@ -19,6 +41,42 @@ export default function LaundryPage() {
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [selectedCollectIndex, setSelectedCollectIndex] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadWeather(position?: GeolocationPosition) {
+      const params = new URLSearchParams();
+      if (position) {
+        params.set("lat", String(position.coords.latitude));
+        params.set("lon", String(position.coords.longitude));
+      }
+      try {
+        const response = await fetch(`/api/weather${params.size ? `?${params.toString()}` : ""}`, { cache: "no-store" });
+        if (!response.ok) throw new Error("weather failed");
+        const data = (await response.json()) as WeatherForecast;
+        if (!cancelled) setWeatherForecast(data);
+      } catch {
+        if (!cancelled) setWeatherForecast(null);
+      } finally {
+        if (!cancelled) setWeatherLoading(false);
+      }
+    }
+
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => { void loadWeather(position); },
+        () => { void loadWeather(); },
+        { maximumAge: 30 * 60 * 1000, timeout: 5000 }
+      );
+    } else {
+      void loadWeather();
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   if (!state || !session) return null;
 
@@ -32,6 +90,25 @@ export default function LaundryPage() {
   const mySlot = mySlots[0];
   const remainingSlots = balcony.totalSlots - balcony.slots.length;
   const canDry = remainingSlots > 0;
+  const currentLaundry = weatherForecast?.current ?? {
+    weather: laundry.weather,
+    weatherIcon: laundry.weatherIcon as AppIconName,
+    temperature: laundry.temperature,
+    index: laundry.index,
+    suitable: laundry.suitable,
+    suggestion: laundry.suggestion,
+    dryingHours: laundry.dryingHours,
+  };
+  const forecastDays = weatherForecast?.days ?? Array.from({ length: 4 }).map((_, index) => {
+    const date = addDays(new Date(), index);
+    return {
+      label: index === 0 ? "今天" : index === 1 ? "明天" : index === 2 ? "后天" : `周${"日一二三四五六"[date.getDay()]}`,
+      date: formatShortDate(date),
+      icon: index === 2 ? "rain" as AppIconName : index === 1 ? "cloudSun" as AppIconName : "sun" as AppIconName,
+      weather: index === 2 ? "雨" : index === 1 ? "多云" : "晴",
+      temperature: laundry.temperature,
+    };
+  });
 
   async function handleCollect() {
     if (!mySlot) {
@@ -71,8 +148,14 @@ export default function LaundryPage() {
 
       {/* Forecast */}
       <CardShell title="未来几天天气">
+        <div className="mb-3 flex items-center justify-between">
+          <span className="text-xs font-bold text-muted-olive">日期：{toDateISO(new Date())}</span>
+          <span className="text-xs font-bold text-muted-olive">
+            {weatherLoading ? "同步中..." : weatherForecast ? `已同步 ${weatherForecast.source}` : "使用默认天气"}
+          </span>
+        </div>
         <div className="grid grid-cols-4 gap-2">
-          {laundryForecastDays.map((day) => (
+          {forecastDays.map((day) => (
             <div
               key={day.date}
               className="rounded-[18px] border border-white/70 bg-white/55 px-2 py-2 text-center text-olive-ink shadow-[0_10px_22px_rgba(82,94,72,0.08)]"
@@ -82,6 +165,7 @@ export default function LaundryPage() {
               <span className="icon-badge-sm mx-auto mt-1">
                 <AppIcon name={day.icon as AppIconName} className="h-[18px] w-[18px]" />
               </span>
+              <span className="mt-1 block text-[11px] font-semibold text-muted-olive">{day.weather}</span>
             </div>
           ))}
         </div>
@@ -91,16 +175,16 @@ export default function LaundryPage() {
       <CardShell variant="sage" title="今日洗晒">
         <p className="flex items-center gap-2 text-base font-semibold text-deep-olive">
           <span className="icon-badge-sm">
-            <AppIcon name={laundry.weatherIcon as AppIconName} className="h-[18px] w-[18px]" />
+            <AppIcon name={currentLaundry.weatherIcon} className="h-[18px] w-[18px]" />
           </span>
-          {laundry.weather} {laundry.temperature}
+          {currentLaundry.weather} {currentLaundry.temperature}
         </p>
         <p className="text-sm text-olive-ink mt-1">
-          洗晒指数：<strong className="text-[#6D8F3E]">{laundry.index}</strong> {laundry.suitable ? "适合洗晒" : "不适合洗晒"}
+          洗晒指数：<strong className="text-[#6D8F3E]">{currentLaundry.index}</strong> {currentLaundry.suitable ? "适合洗晒" : "不适合洗晒"}
         </p>
-        <p className="text-sm text-muted-olive">预计晾晒时长：{laundry.dryingHours}</p>
+        <p className="text-sm text-muted-olive">预计晾晒时长：{currentLaundry.dryingHours}</p>
         <p className="text-sm text-muted-olive leading-relaxed mt-1">
-          提醒：{laundry.suggestion}
+          提醒：{currentLaundry.suggestion}
         </p>
       </CardShell>
 
@@ -166,7 +250,7 @@ export default function LaundryPage() {
       {/* AI Suggestion */}
       <CardShell variant="sage" title="AI 轻量建议">
         <p className="text-sm text-muted-olive leading-relaxed">
-          天气良好，还有 {remainingSlots} 个空位，优先轻薄衣物。厚外套建议错峰晾晒。
+          {currentLaundry.suggestion} 当前还有 {remainingSlots} 个空位。
         </p>
       </CardShell>
 

@@ -31,6 +31,46 @@ function inferExpenseTitle(message: string) {
   return "宿舍支出";
 }
 
+function isCreatorOnlyExpense(message: string) {
+  return /(仅我支付|只我支付|我自己支付|自己支付|我自己付|自己付|仅自己|只自己|个人花费|个人支付|个人支出|不用平摊|不平摊|不要平摊|不需要平摊|不 AA|不用AA|不AA)/iu.test(message);
+}
+
+function isRatioExpense(message: string) {
+  return /(按比例|比例收费|比例分摊|百分比|%)/u.test(message);
+}
+
+function extractRatioShares(message: string, state: DormState, userName: string) {
+  return state.members
+    .map((member) => {
+      const names = member.name === userName ? [member.name, "我", "自己"] : [member.name];
+      const ratio = names.reduce<number | null>((found, name) => {
+        if (found !== null) return found;
+        const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const patterns = [
+          new RegExp(`${escapedName}[^\\d]{0,8}(\\d+(?:\\.\\d+)?)\\s*%`, "u"),
+          new RegExp(`${escapedName}[^\\d]{0,8}(\\d+(?:\\.\\d+)?)\\s*(?:成|份)`, "u"),
+        ];
+        for (const pattern of patterns) {
+          const match = message.match(pattern);
+          if (match) {
+            const value = Number(match[1]);
+            return pattern.source.includes("(?:成|份)") ? value * 10 : value;
+          }
+        }
+        return null;
+      }, null);
+
+      return ratio && ratio > 0
+        ? {
+            member: member.name,
+            ratio: Math.round(ratio * 100) / 100,
+            amount: 0,
+          }
+        : null;
+    })
+    .filter((share): share is { member: string; ratio: number; amount: number } => Boolean(share));
+}
+
 function inferLaundryType(message: string) {
   if (message.includes("床单")) return "床单";
   if (message.includes("被套")) return "被套";
@@ -110,18 +150,33 @@ export function processAiMessage(
     const title = inferExpenseTitle(normalized);
     const creator = findMentionedMember(normalized, state, userName);
     const memberCount = Math.max(state.members.length, 1);
-    const perPerson = Math.round((amount / memberCount) * 100) / 100;
+    const creatorOnly = isCreatorOnlyExpense(normalized);
+    const ratioSplit = !creatorOnly && isRatioExpense(normalized);
+    const splitShares = ratioSplit ? extractRatioShares(normalized, state, userName) : [];
+    const ratioTotal = Math.round(splitShares.reduce((sum, share) => sum + share.ratio, 0) * 100) / 100;
+    if (ratioSplit && (splitShares.length === 0 || ratioTotal > 100)) {
+      lines.push("按比例收费需要写明每个人比例，且总比例不能超过100%。");
+    } else {
+      const perPerson = creatorOnly || ratioSplit ? amount : Math.round((amount / memberCount) * 100) / 100;
 
-    actions.push({
-      type: "add_expense",
-      title,
-      amount,
-      creator,
-      splitMethod: `${memberCount}人平摊`,
-      perPerson,
-      note: normalized,
-    });
-    lines.push(`已新增${title} ${amount}元，人均${perPerson}元。`);
+      actions.push({
+        type: "add_expense",
+        title,
+        amount,
+        creator,
+        splitMethod: creatorOnly ? "creatorOnly" : ratioSplit ? "ratio" : `${memberCount}人平摊`,
+        perPerson,
+        splitShares,
+        note: normalized,
+      });
+      lines.push(
+        creatorOnly
+          ? `已新增${title} ${amount}元，记录为${creator}个人支付。`
+          : ratioSplit
+            ? `已新增${title} ${amount}元，按比例收费（合计${ratioTotal}%）。`
+            : `已新增${title} ${amount}元，人均${perPerson}元。`
+      );
+    }
   } else if (amount && /(水电|电费|水费)/u.test(normalized)) {
     actions.push({ type: "update_utility", total: amount, memberCount: state.members.length });
     lines.push(`已把水电费总额更新为${amount}元。`);

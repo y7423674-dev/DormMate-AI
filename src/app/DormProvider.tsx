@@ -10,7 +10,7 @@ type DormContextType = {
   session: UserSession | null;
   joinDorm: (nickname: string, dormCode: string, role: "member" | "leader") => Promise<string | null>;
   refreshState: () => Promise<void>;
-  apiPost: (path: string, body: Record<string, string>) => Promise<void>;
+  apiPost: (path: string, body: Record<string, unknown>) => Promise<void>;
   sendAiMessage: (message: string) => Promise<string>;
   clearSession: () => void;
 };
@@ -60,7 +60,7 @@ export function DormProvider({ children }: { children: ReactNode }) {
   }, [session]);
 
   // Generic API POST helper — calls API, updates state, broadcasts
-  const apiPost = useCallback(async (path: string, body: Record<string, string>) => {
+  const apiPost = useCallback(async (path: string, body: Record<string, unknown>) => {
     if (!session) return;
     try {
       const res = await fetch(`/api/dorm/${session.dormCode}/${path}`, {

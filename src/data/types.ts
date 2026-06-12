@@ -73,6 +73,12 @@ export type ExpenseConfirmation = {
   confirmed: boolean;
 };
 
+export type ExpenseShare = {
+  member: string;
+  ratio: number;
+  amount: number;
+};
+
 export type ExpenseRecord = {
   id: string;
   title: string;
@@ -80,8 +86,10 @@ export type ExpenseRecord = {
   creator: string;
   splitMethod: string;
   perPerson: number;
+  splitShares?: ExpenseShare[];
   note: string;
   date: string;
+  dateISO?: string;
   confirmations: ExpenseConfirmation[];
 };
 
@@ -134,7 +142,7 @@ export type AiAction =
   | { type: "add_makeup_task"; date: string; user: string }
   | { type: "complete_duty"; user: string }
   | { type: "update_utility"; total: number; memberCount: number }
-  | { type: "add_expense"; title: string; amount: number; creator: string; splitMethod: string; perPerson: number; note: string }
+  | { type: "add_expense"; title: string; amount: number; creator: string; splitMethod: string; perPerson: number; note: string; splitShares?: ExpenseShare[] }
   | { type: "confirm_expense"; expenseId?: string; title?: string; user: string }
   | { type: "delete_expense"; expenseId?: string; title?: string; user: string }
   | { type: "add_announcement"; title: string; content: string; author: string; pinned?: boolean }

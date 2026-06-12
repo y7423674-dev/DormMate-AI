@@ -25,7 +25,8 @@ export default function DashboardPage() {
   const dutyDone = !isMyDuty || state.todayDuty.status === "已完成";
   const mySlot = state.balcony.slots.find((s) => s.user === myName);
   const laundryDone = !mySlot;
-  const expenseConfirmed = state.expenses.every(
+  const payableExpenses = state.expenses.filter((exp) => exp.splitMethod !== "个人支付");
+  const expenseConfirmed = payableExpenses.every(
     (exp) => exp.confirmations.find((c) => c.member === myName)?.confirmed
   );
 

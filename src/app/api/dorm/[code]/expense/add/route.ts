@@ -1,18 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { loadServerDormState, saveServerDormState } from "@/lib/serverStore";
-import type { ExpenseRecord } from "@/data/types";
-
-function formatDate() {
-  const now = new Date();
-  return `${now.getMonth() + 1}月${now.getDate()}日`;
-}
+import type { ExpenseRecord, ExpenseShare } from "@/data/types";
+import { formatMonthDay, toDateISO } from "@/lib/dateUtils";
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ code: string }> }
 ) {
   const { code } = await params;
-  const { title, amount, creator, note, splitMethod } = await request.json();
+  const { title, amount, creator, note, splitMethod, splitShares } = await request.json();
 
   const cleanTitle = String(title || "").trim();
   const cleanCreator = String(creator || "").trim();
@@ -26,22 +22,50 @@ export async function POST(
   const state = loadServerDormState(code);
   const memberCount = Math.max(state.members.length, 1);
   const isCreatorOnly = splitMethod === "creatorOnly";
+  const isRatio = splitMethod === "ratio";
+  const amountRounded = Math.round(parsedAmount * 100) / 100;
+  const ratioShares: ExpenseShare[] = isRatio
+    ? state.members
+        .map((member) => {
+          const ratio = Number(splitShares?.[member.name] || 0);
+          return {
+            member: member.name,
+            ratio: Number.isFinite(ratio) && ratio > 0 ? Math.round(ratio * 100) / 100 : 0,
+            amount: 0,
+          };
+        })
+        .filter((share) => share.ratio > 0)
+    : [];
+  const ratioTotal = Math.round(ratioShares.reduce((sum, share) => sum + share.ratio, 0) * 100) / 100;
+
+  if (isRatio && (ratioShares.length === 0 || ratioTotal > 100)) {
+    return NextResponse.json({ error: "按比例收费的总比例必须大于0且不超过100%" }, { status: 400 });
+  }
+
+  const finalRatioShares = ratioShares.map((share) => ({
+    ...share,
+    amount: Math.round(amountRounded * (share.ratio / 100) * 100) / 100,
+  }));
   const perPerson = isCreatorOnly
-    ? Math.round(parsedAmount * 100) / 100
-    : Math.round((parsedAmount / memberCount) * 100) / 100;
+    ? amountRounded
+    : isRatio
+      ? 0
+      : Math.round((amountRounded / memberCount) * 100) / 100;
 
   const newExpense: ExpenseRecord = {
     id: `exp-${Date.now()}`,
     title: cleanTitle,
-    amount: Math.round(parsedAmount * 100) / 100,
+    amount: amountRounded,
     creator: cleanCreator,
-    splitMethod: isCreatorOnly ? "个人支付" : `${memberCount}人平摊`,
+    splitMethod: isCreatorOnly ? "个人支付" : isRatio ? `按比例收费（${ratioTotal}%）` : `${memberCount}人平摊`,
     perPerson,
+    splitShares: isRatio ? finalRatioShares : undefined,
     note: cleanNote || "无备注",
-    date: formatDate(),
+    date: formatMonthDay(),
+    dateISO: toDateISO(),
     confirmations: state.members.map((member) => ({
       member: member.name,
-      confirmed: isCreatorOnly || member.name === cleanCreator,
+      confirmed: isCreatorOnly || member.name === cleanCreator || (isRatio && !finalRatioShares.some((share) => share.member === member.name)),
     })),
   };
 

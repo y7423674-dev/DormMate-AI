@@ -1,4 +1,5 @@
 import type { DormState, LaundryForecastDay } from "./types";
+import { addDays, formatDateLabel, formatMonthDay, formatShortDate, toDateISO } from "@/lib/dateUtils";
 
 export const defaultDormCode = "DORM-402";
 
@@ -10,6 +11,13 @@ export const laundryForecastDays: LaundryForecastDay[] = [
 ];
 
 export function createDefaultDormState(dormCode: string): DormState {
+  const today = new Date();
+  const yesterday = addDays(today, -1);
+  const tomorrow = addDays(today, 1);
+  const currentMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+  const firstExpenseDate = new Date(today.getFullYear(), today.getMonth(), 1);
+  const secondExpenseDate = new Date(today.getFullYear(), today.getMonth(), Math.min(3, today.getDate()));
+
   return {
     dormCode,
     members: [
@@ -19,27 +27,27 @@ export function createDefaultDormState(dormCode: string): DormState {
       { id: "4", name: "小林", role: "member", status: "晚起", avatarInitial: "林" },
     ],
     todayDuty: {
-      date: "2026-05-31",
-      dateLabel: "05月31日 周日",
+      date: toDateISO(today),
+      dateLabel: formatDateLabel(today),
       user: "小李",
       area: "公共地面",
       suggestion: "22:00前完成",
       status: "未完成",
     },
     dutySchedule: [
-      { date: "2026-05-30", dayLabel: "周六", shortDate: "05/30", itemCount: 1, statusLabel: "已完成", isToday: false },
-      { date: "2026-05-31", dayLabel: "今天", shortDate: "05/31", itemCount: 1, statusLabel: "待完成", isToday: true },
-      { date: "2026-06-01", dayLabel: "周一", shortDate: "06/01", itemCount: 0, statusLabel: "待完成", isToday: false },
+      { date: toDateISO(yesterday), dayLabel: "昨天", shortDate: formatShortDate(yesterday), itemCount: 1, statusLabel: "已完成", isToday: false },
+      { date: toDateISO(today), dayLabel: "今天", shortDate: formatShortDate(today), itemCount: 1, statusLabel: "待完成", isToday: true },
+      { date: toDateISO(tomorrow), dayLabel: "明天", shortDate: formatShortDate(tomorrow), itemCount: 1, statusLabel: "待完成", isToday: false },
     ],
     utility: {
-      month: "2026-06",
+      month: currentMonth,
       total: 128,
       memberCount: 4,
       perPerson: 32,
       confirmedCount: 3,
     },
     laundry: {
-      date: "2026-05-31",
+      date: toDateISO(today),
       weather: "晴 / 微风",
       weatherIcon: "sun",
       temperature: "22℃ - 29℃",
@@ -77,7 +85,8 @@ export function createDefaultDormState(dormCode: string): DormState {
         splitMethod: "4人平摊",
         perPerson: 20,
         note: "6月宿舍电费",
-        date: "6月1日",
+        date: formatMonthDay(firstExpenseDate),
+        dateISO: toDateISO(firstExpenseDate),
         confirmations: [
           { member: "小李", confirmed: true },
           { member: "小王", confirmed: true },
@@ -93,7 +102,8 @@ export function createDefaultDormState(dormCode: string): DormState {
         splitMethod: "4人平摊",
         perPerson: 6,
         note: "洗洁精、垃圾袋",
-        date: "6月3日",
+        date: formatMonthDay(secondExpenseDate),
+        dateISO: toDateISO(secondExpenseDate),
         confirmations: [
           { member: "小李", confirmed: true },
           { member: "小王", confirmed: true },

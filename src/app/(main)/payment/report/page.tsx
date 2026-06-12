@@ -27,6 +27,7 @@ export default function ReportPage() {
   if (!state) return null;
 
   const stats = state.monthlyStats;
+  const payableExpenses = state.expenses.filter((expense) => expense.splitMethod !== "个人支付");
 
   const expenseBreakdownData = stats.expenseBreakdown;
   const weeklyExpenseData = stats.weeklyExpenses;
@@ -102,7 +103,7 @@ export default function ReportPage() {
       <CardShell variant="sage" title="舍友完成情况">
         <div className="space-y-2">
           {state.members.map((m) => {
-            const allConfirmed = state.expenses.every((exp) =>
+            const allConfirmed = payableExpenses.every((exp) =>
               exp.confirmations.find((c) => c.member === m.name)?.confirmed
             );
             return (

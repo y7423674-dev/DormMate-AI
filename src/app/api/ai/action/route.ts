@@ -38,9 +38,11 @@ function buildSystemPrompt(
 4. update_utility — 更新水电费总额
    格式：{ "type": "update_utility", "total": 总金额数字, "memberCount": 舍友人数 }
 
-5. add_expense — 新增费用记录，舍友平摊
-   格式：{ "type": "add_expense", "title": "费用标题", "amount": 总金额, "creator": "付款人", "splitMethod": "人均", "perPerson": 人均金额, "note": "备注" }
-   用途：用户说花了XX元充电费/买日用品等，自动记账并计算人均金额（金额÷舍友人数）
+5. add_expense — 新增费用记录
+   平摊格式：{ "type": "add_expense", "title": "费用标题", "amount": 总金额, "creator": "付款人", "splitMethod": "人均", "perPerson": 人均金额, "note": "备注" }
+   个人支付格式：{ "type": "add_expense", "title": "费用标题", "amount": 总金额, "creator": "付款人", "splitMethod": "creatorOnly", "perPerson": 总金额, "note": "备注" }
+   按比例格式：{ "type": "add_expense", "title": "费用标题", "amount": 总金额, "creator": "付款人", "splitMethod": "ratio", "perPerson": 总金额, "splitShares": [{ "member": "舍友昵称", "ratio": 比例数字, "amount": 0 }], "note": "备注" }
+   用途：用户说花了XX元充电费/买日用品等，自动记账。没有明确分摊方式时，一律按舍友平摊；只有用户明确说“仅我支付/我自己付/个人花费/不用平摊/不AA”等，才使用 creatorOnly；只有用户明确说“按比例/比例分摊/百分比”并给出各成员比例时，才使用 ratio。
 
 6. complete_duty — 标记当前值日完成
    格式：{ "type": "complete_duty", "user": "完成值日的舍友昵称" }
@@ -76,7 +78,10 @@ function buildSystemPrompt(
 重要规则：
 - user 字段使用舍友昵称（来自舍友列表），不要使用 id
 - 当前说话人是 "${userName}"，除非用户明确提到其他舍友名字，否则操作对象默认是说话人
-- 如果用户提到金额，自动计算人均金额（总金额 ÷ ${memberCount}），四舍五入取整
+- 如果用户提到金额，默认新增平摊支出，自动计算人均金额（总金额 ÷ ${memberCount}），四舍五入取整
+- 只有用户明确表达“仅我支付、只我支付、我自己支付、我自己付、个人花费、个人支付、不用平摊、不平摊、不AA、不用AA”时，add_expense 的 splitMethod 才能使用 "creatorOnly"，perPerson 等于总金额
+- 只有用户明确表达“按比例、比例分摊、比例收费、百分比、%”并给出成员比例时，add_expense 的 splitMethod 才能使用 "ratio"；splitShares 只包含有比例的成员，ratio 总和必须不超过100，amount 填 0 即可，由系统计算
+- 除了明确提及个人支付或按比例收费，所有 AI 记录开支都统一使用平摊方式
 - 如果用户说“发公告/通知大家/提醒大家”，使用 add_announcement；标题可以从内容中提炼，内容保留用户原意
 - 如果用户说“我要晾晒/晒衣服/晾床单”，使用 add_laundry_slot；未给收衣时间时默认 22:00，未给衣物类型时默认“轻薄衣物”
 - 如果用户说“收衣/衣服收了”，使用 collect_laundry
