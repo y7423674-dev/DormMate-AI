@@ -17,7 +17,7 @@ export default function BottomNav() {
 
   return (
     <nav className="absolute bottom-0 left-0 right-0 z-30 border-t border-white/70 bg-white/72 shadow-[0_-16px_40px_rgba(77,87,69,0.12)] backdrop-blur-xl">
-      <div className="mx-auto flex max-w-[430px] px-2 py-2">
+      <div className="mx-auto flex max-w-[430px] px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2">
         {tabs.map((tab) => {
           const active = pathname === tab.href || pathname.startsWith(tab.href + "/");
           return (

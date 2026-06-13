@@ -29,6 +29,7 @@ export default function PaymentPage() {
   const today = new Date();
   const todayISO = toDateISO(today);
   const [monthCursor, setMonthCursor] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
+  const [selectedExpenseDate, setSelectedExpenseDate] = useState(todayISO);
   const [showAddForm, setShowAddForm] = useState(false);
   const [expenseTitle, setExpenseTitle] = useState("");
   const [expenseAmount, setExpenseAmount] = useState("");
@@ -61,9 +62,19 @@ export default function PaymentPage() {
       .filter((dateISO) => dateISO && compareDateISO(dateISO, todayISO) <= 0)
       .map((dateISO) => Number(dateISO.slice(-2)))
   );
+  const selectedDayExpenses = state.expenses.filter((expense) => getExpenseDateISO(expense, monthYear) === selectedExpenseDate);
+  const selectedDayTotal = selectedDayExpenses.reduce((sum, expense) => sum + expense.amount, 0);
 
   function changeMonth(offset: number) {
-    setMonthCursor((current) => new Date(current.getFullYear(), current.getMonth() + offset, 1));
+    setMonthCursor((current) => {
+      const next = new Date(current.getFullYear(), current.getMonth() + offset, 1);
+      const nextISO =
+        next.getFullYear() === today.getFullYear() && next.getMonth() === today.getMonth()
+          ? todayISO
+          : toDateISO(next);
+      setSelectedExpenseDate(nextISO);
+      return next;
+    });
   }
 
   function handleConfirm(expenseId: string) {
@@ -179,28 +190,66 @@ export default function PaymentPage() {
             const dateISO = `${monthKey}-${String(day).padStart(2, "0")}`;
             const hasExpense = expenseDays.has(day) && compareDateISO(dateISO, todayISO) <= 0;
             const isToday = dateISO === todayISO;
+            const isSelected = dateISO === selectedExpenseDate;
             return (
-              <span
+              <button
                 key={day}
-                className={`relative py-1 text-center text-sm ${
-                  isToday
-                    ? "rounded-full bg-[#20251E] font-extrabold text-white"
+                type="button"
+                onClick={() => setSelectedExpenseDate(dateISO)}
+                className={`relative rounded-full py-1 text-center text-sm font-semibold transition ${
+                  isSelected
+                    ? "bg-[#20251E] text-white shadow-[0_8px_18px_rgba(32,37,30,0.16)]"
+                    : isToday
+                      ? "bg-[#EEF5E8] font-extrabold text-[#20251E]"
                     : compareDateISO(dateISO, todayISO) > 0
                       ? "text-[#B8BEB2]"
-                      : "text-olive-ink"
+                      : "text-olive-ink hover:bg-[#EEF5E8]"
                 }`}
               >
                 {day}
                 {hasExpense && (
-                  <span className={`absolute bottom-0 left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-pill ${isToday ? "bg-white" : "bg-[#A7D86D]"}`} />
+                  <span className={`absolute bottom-0 left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-pill ${isSelected ? "bg-white" : "bg-[#A7D86D]"}`} />
                 )}
-              </span>
+              </button>
             );
           })}
         </div>
         <p className="text-xs text-muted-olive mt-2">
           <span className="mr-1 inline-block h-1.5 w-1.5 rounded-pill bg-[#A7D86D]" /> 有支出记录
         </p>
+      </CardShell>
+
+      <CardShell title="">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-bold text-deep-olive">{selectedExpenseDate} 支出</p>
+            <p className="text-xs font-semibold text-muted-olive">
+              {selectedDayExpenses.length > 0 ? `${selectedDayExpenses.length} 笔记录` : "暂无支出记录"}
+            </p>
+          </div>
+          <span className="rounded-[16px] bg-[#EEF5E8] px-3 py-1.5 text-sm font-extrabold text-[#5F684D]">
+            {selectedDayTotal.toFixed(2)}元
+          </span>
+        </div>
+        {selectedDayExpenses.length === 0 ? (
+          <p className="rounded-[18px] bg-white/55 px-3 py-3 text-center text-sm font-semibold text-muted-olive">
+            当天没有登记支出。
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {selectedDayExpenses.map((exp) => (
+              <div key={exp.id} className="rounded-[18px] bg-white/55 px-3 py-2">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="min-w-0 truncate text-sm font-bold text-deep-olive">{exp.title}</span>
+                  <span className="whitespace-nowrap text-sm font-extrabold text-deep-olive">{exp.amount}元</span>
+                </div>
+                <p className="mt-0.5 text-xs font-semibold text-muted-olive">
+                  {exp.creator} · {exp.splitMethod}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
       </CardShell>
 
       {/* Expense Cards */}

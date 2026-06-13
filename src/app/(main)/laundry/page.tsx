@@ -205,12 +205,14 @@ export default function LaundryPage() {
         {balcony.slots.length > 0 && (
           <div className="space-y-2 mt-3">
             {balcony.slots.map((slot, i) => (
-              <div key={`${slot.user}-${i}`} className="flex items-center justify-between gap-2 rounded-[18px] bg-white/55 px-3 py-2 text-sm">
+              <div key={`${slot.user}-${i}`} className="grid grid-cols-[minmax(0,1fr)_86px_76px] items-center gap-2 rounded-[18px] bg-white/55 px-3 py-2 text-sm">
                 <div className="flex min-w-0 items-center gap-2">
-                  <span className="font-semibold text-deep-olive">{slot.user}</span>
+                  <span className="truncate font-semibold text-deep-olive">{slot.user}</span>
                   {slot.user === myName && <StatusBadge label="我的" variant="success" />}
                 </div>
-                <StatusBadge label={slot.type} variant="default" />
+                <span className="flex justify-center">
+                  <StatusBadge label={slot.type} variant="default" />
+                </span>
                 <span className="whitespace-nowrap text-muted-olive">{slot.collectTime}收衣</span>
               </div>
             ))}

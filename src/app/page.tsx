@@ -99,7 +99,7 @@ export default function JoinPage() {
               AI 宿舍协作看板
             </h1>
             <p className="mt-2.5 max-w-[330px] text-[15px] font-medium leading-6 text-[#6F766A]">
-              AI 宿舍协作看板，让值日、公告和缴费更轻松。
+              AI 宿舍协作看板，让宿舍生活更轻松。
             </p>
           </div>
 

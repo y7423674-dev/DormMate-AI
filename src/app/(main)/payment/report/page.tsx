@@ -13,6 +13,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import type { ExpenseRecord } from "@/data/types";
 
 const CHART_COLORS = {
   barFill: "#A7D86D",
@@ -22,14 +23,34 @@ const CHART_COLORS = {
   axisLine: "#bfc1b7",
 };
 
+function isPersonalExpense(expense: ExpenseRecord) {
+  return expense.splitMethod === "个人支付";
+}
+
+function sumExpenses(expenses: ExpenseRecord[]) {
+  return expenses.reduce((sum, expense) => sum + expense.amount, 0);
+}
+
+function buildExpenseChartData(expenses: ExpenseRecord[]) {
+  return expenses.map((expense) => ({
+    category: expense.title,
+    amount: expense.amount,
+  }));
+}
+
 export default function ReportPage() {
   const { state } = useDorm();
   if (!state) return null;
 
   const stats = state.monthlyStats;
-  const payableExpenses = state.expenses.filter((expense) => expense.splitMethod !== "个人支付");
-
-  const expenseBreakdownData = stats.expenseBreakdown;
+  const publicExpenses = state.expenses.filter((expense) => !isPersonalExpense(expense));
+  const personalExpenses = state.expenses.filter(isPersonalExpense);
+  const payableExpenses = publicExpenses;
+  const publicTotal = sumExpenses(publicExpenses);
+  const personalTotal = sumExpenses(personalExpenses);
+  const publicPerPerson = Math.round((publicTotal / Math.max(state.members.length, 1)) * 100) / 100;
+  const publicExpenseData = buildExpenseChartData(publicExpenses);
+  const personalExpenseData = buildExpenseChartData(personalExpenses);
   const weeklyExpenseData = stats.weeklyExpenses;
 
   const suggestions = [
@@ -45,16 +66,16 @@ export default function ReportPage() {
       {/* AI Summary */}
       <CardShell variant="sage" title="AI 月度总结">
         <p className="text-sm text-olive-ink leading-relaxed">
-          本月共记录 8 笔支出，合计{stats.utilityTotal}元，人均{Math.round(stats.utilityTotal / state.members.length)}元。
-          支出主要集中在水电费，公共用品支出较低。
+          本月公共开支 {publicExpenses.length} 笔，合计{publicTotal}元，人均{publicPerPerson}元。
+          个人开支 {personalExpenses.length} 笔，合计{personalTotal}元，仅用于个人记录，不计入宿舍公共缴费。
         </p>
         <button className="btn-sage text-sm mt-3">重新生成AI分析</button>
       </CardShell>
 
-      {/* Expense Breakdown Chart */}
-      <CardShell title="费用结构图">
+      {/* Public Expense Breakdown Chart */}
+      <CardShell title="公共开支分析">
         <ResponsiveContainer width="100%" height={200}>
-          <BarChart data={expenseBreakdownData} layout="vertical">
+          <BarChart data={publicExpenseData} layout="vertical">
             <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.grid} />
             <XAxis type="number" tick={{ fill: CHART_COLORS.axis, fontSize: 13 }} axisLine={{ stroke: CHART_COLORS.axisLine }} />
             <YAxis type="category" dataKey="category" tick={{ fill: CHART_COLORS.axis, fontSize: 13 }} axisLine={{ stroke: CHART_COLORS.axisLine }} width={80} />
@@ -71,8 +92,40 @@ export default function ReportPage() {
           </BarChart>
         </ResponsiveContainer>
         <p className="text-sm text-muted-olive mt-3 leading-relaxed">
-          AI解释：水电费占本月支出主体（128元），公共用品支出仅46元，建议减少零散采购。
+          AI解释：公共开支用于宿舍成员分摊或按比例收费，当前合计 {publicTotal} 元，人均约 {publicPerPerson} 元。
         </p>
+      </CardShell>
+
+      {/* Personal Expense Breakdown Chart */}
+      <CardShell title="个人开支分析">
+        {personalExpenseData.length === 0 ? (
+          <p className="rounded-[18px] bg-white/55 px-3 py-3 text-center text-sm font-semibold text-muted-olive">
+            本月暂无个人开支记录。
+          </p>
+        ) : (
+          <>
+            <ResponsiveContainer width="100%" height={180}>
+              <BarChart data={personalExpenseData} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.grid} />
+                <XAxis type="number" tick={{ fill: CHART_COLORS.axis, fontSize: 13 }} axisLine={{ stroke: CHART_COLORS.axisLine }} />
+                <YAxis type="category" dataKey="category" tick={{ fill: CHART_COLORS.axis, fontSize: 13 }} axisLine={{ stroke: CHART_COLORS.axisLine }} width={80} />
+                <Tooltip
+                  contentStyle={{
+                    background: "white",
+                    border: "1px solid #E3E8DD",
+                    borderRadius: "16px",
+                    color: "#4d4f46",
+                    fontSize: 13,
+                  }}
+                />
+                <Bar dataKey="amount" fill="#F7A501" radius={[0, 4, 4, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+            <p className="text-sm text-muted-olive mt-3 leading-relaxed">
+              AI解释：个人开支共 {personalExpenses.length} 笔，合计 {personalTotal} 元，仅展示个人消费，不影响舍友缴费完成情况。
+            </p>
+          </>
+        )}
       </CardShell>
 
       {/* Weekly Trend Chart */}
