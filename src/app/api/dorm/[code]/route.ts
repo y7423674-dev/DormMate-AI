@@ -16,7 +16,7 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ code: string }> }
 ) {
-  const { code } = await params;
+  await params;
   const state = await request.json();
   saveServerDormState(state);
   return NextResponse.json(state);

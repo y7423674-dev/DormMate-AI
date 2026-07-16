@@ -10,6 +10,66 @@ export const laundryForecastDays: LaundryForecastDay[] = [
   { label: "周四", date: "6/3", icon: "sun", selected: false },
 ];
 
+export function createEmptyDormState(dormCode: string): DormState {
+  const today = new Date();
+  const tomorrow = addDays(today, 1);
+  const currentMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+
+  return {
+    dormCode,
+    members: [],
+    todayDuty: {
+      date: toDateISO(today),
+      dateLabel: formatDateLabel(today),
+      user: "",
+      area: "公共区域",
+      suggestion: "等待设置值日安排",
+      status: "未完成",
+    },
+    dutySchedule: [
+      { date: toDateISO(today), dayLabel: "今天", shortDate: formatShortDate(today), itemCount: 0, statusLabel: "待安排", isToday: true },
+      { date: toDateISO(tomorrow), dayLabel: "明天", shortDate: formatShortDate(tomorrow), itemCount: 0, statusLabel: "待安排", isToday: false },
+    ],
+    utility: {
+      month: currentMonth,
+      total: 0,
+      memberCount: 0,
+      perPerson: 0,
+      confirmedCount: 0,
+    },
+    laundry: {
+      date: toDateISO(today),
+      weather: "待更新",
+      weatherIcon: "sun",
+      temperature: "--",
+      index: 0,
+      suitable: true,
+      suggestion: "暂无洗晒记录",
+      dryingHours: "--",
+    },
+    balcony: {
+      totalSlots: 4,
+      slots: [],
+    },
+    announcements: [],
+    leaderTransferRequests: [],
+    expenses: [],
+    aiLogs: [],
+    monthlyStats: {
+      dutyCompletionRate: 0,
+      changeCount: 0,
+      substituteCount: 0,
+      makeupCount: 0,
+      utilityTotal: 0,
+      laundryGoodDays: 0,
+      lateReturnCount: 0,
+      earlyClassCount: 0,
+      weeklyExpenses: [],
+      expenseBreakdown: [],
+    },
+  };
+}
+
 export function createDefaultDormState(dormCode: string): DormState {
   const today = new Date();
   const yesterday = addDays(today, -1);
@@ -76,6 +136,7 @@ export function createDefaultDormState(dormCode: string): DormState {
         readByMe: false,
       },
     ],
+    leaderTransferRequests: [],
     expenses: [
       {
         id: "exp-1",

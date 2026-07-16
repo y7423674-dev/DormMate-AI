@@ -15,7 +15,15 @@ function statusVariant(status: string) {
 
 export default function DashboardPage() {
   const { state, session, apiPost } = useDorm();
-  if (!state || !session) return null;
+  if (!state || !session) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="rounded-[24px] border border-white/75 bg-white/72 px-5 py-4 text-center shadow-[0_18px_48px_rgba(77,87,69,0.12)]">
+          <p className="text-sm font-extrabold text-[#4F5844]">正在加载宿舍看板...</p>
+        </div>
+      </div>
+    );
+  }
 
   const ann = state.announcements.find((a) => a.pinned);
   const myName = session.nickname;
@@ -30,14 +38,15 @@ export default function DashboardPage() {
     (exp) => exp.confirmations.find((c) => c.member === myName)?.confirmed
   );
 
-  const allTasks: { key: string; icon: AppIconName; label: string; done: boolean; doneText: string }[] = [
-    { key: "duty", icon: "broom", label: "值扫", done: dutyDone, doneText: isMyDuty ? "值扫已完成" : "今日无值扫任务" },
-    { key: "laundry", icon: "shirt", label: "收衣", done: laundryDone, doneText: "收衣已完成" },
-    { key: "expense", icon: "wallet", label: "缴费", done: expenseConfirmed, doneText: `水电${state.utility.perPerson}元已确认` },
+  const allTasks: { key: string; icon: AppIconName; label: string; done: boolean }[] = [
+    { key: "duty", icon: "broom", label: "值扫", done: dutyDone },
+    { key: "laundry", icon: "shirt", label: "收衣", done: laundryDone },
+    { key: "expense", icon: "wallet", label: "缴费", done: expenseConfirmed },
   ];
 
   const doneCount = allTasks.filter((t) => t.done).length;
   const total = allTasks.length;
+  const incompleteTasks = allTasks.filter((t) => !t.done);
 
   return (
     <div>
@@ -100,12 +109,15 @@ export default function DashboardPage() {
         </div>
 
         {/* Incomplete */}
-        {allTasks.some((t) => !t.done) && (
+        {incompleteTasks.length > 0 && (
           <>
             <p className="text-xs font-bold text-muted-olive uppercase mb-2">未完成</p>
             <div className="space-y-2 mb-4">
-              {allTasks.filter((t) => !t.done).map((task) => (
-                <div key={task.key} className="flex items-center justify-between py-2 border-b border-sage-border">
+              {incompleteTasks.map((task) => (
+                <div
+                  key={task.key}
+                  className="flex items-center justify-between py-2 border-b border-sage-border"
+                >
                   <div className="flex items-center gap-2">
                     <span className="icon-badge-sm">
                       <AppIcon name={task.icon} className="h-[18px] w-[18px]" />
@@ -119,32 +131,24 @@ export default function DashboardPage() {
                     )}
                   </div>
                   {task.key === "duty" && isMyDuty && (
-                    <button onClick={() => apiPost("duty/complete", { userName: myName })} className="btn-sage text-xs">完成</button>
+                    <button
+                      onClick={() => apiPost("duty/complete", { userName: myName })}
+                      className="btn-sage text-xs"
+                    >
+                      完成
+                    </button>
                   )}
                   {task.key === "laundry" && (
-                    <button onClick={() => apiPost("laundry/collect", { userName: myName })} className="btn-sage text-xs">完成</button>
+                    <button
+                      onClick={() => apiPost("laundry/collect", { userName: myName })}
+                      className="btn-sage text-xs"
+                    >
+                      完成
+                    </button>
                   )}
                   {task.key === "expense" && (
                     <Link href="/payment" className="btn-sage text-xs">确认</Link>
                   )}
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-
-        {/* Complete */}
-        {allTasks.some((t) => t.done) && (
-          <>
-            <p className="text-xs font-bold text-muted-olive uppercase mb-2">已完成</p>
-            <div className="space-y-2">
-              {allTasks.filter((t) => t.done).map((task) => (
-                <div key={task.key} className="flex items-center gap-2 py-2">
-                  <span className="icon-badge-sm icon-badge-dark">
-                    <AppIcon name="check" className="h-[18px] w-[18px]" />
-                  </span>
-                  <span className="text-sm text-muted-olive">{task.doneText}</span>
-                  <StatusBadge label="已完成" variant="success" />
                 </div>
               ))}
             </div>

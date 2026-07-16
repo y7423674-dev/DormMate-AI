@@ -126,6 +126,9 @@ export function applyAiActions(state: DormState, actions: AiAction[]): DormState
           confirmations: newState.members.map((m) => ({
             member: m.name,
             confirmed: isCreatorOnly || m.name === action.creator || (isRatio && !ratioShares.some((share) => share.member === m.name)),
+            status: isCreatorOnly || m.name === action.creator || (isRatio && !ratioShares.some((share) => share.member === m.name))
+              ? "confirmed"
+              : "unpaid",
           })),
         };
         newState.expenses = [newExpense, ...newState.expenses];
@@ -147,7 +150,7 @@ export function applyAiActions(state: DormState, actions: AiAction[]): DormState
           newState.expenses[expenseIndex] = {
             ...expense,
             confirmations: expense.confirmations.map((confirmation) =>
-              confirmation.member === action.user ? { ...confirmation, confirmed: true } : confirmation
+              confirmation.member === action.user ? { ...confirmation, confirmed: true, status: "confirmed" } : confirmation
             ),
           };
         }

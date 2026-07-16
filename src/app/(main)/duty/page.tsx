@@ -16,6 +16,7 @@ function positiveModulo(value: number, modulo: number) {
 export default function DutyPage() {
   const { state, session, apiPost } = useDorm();
   const [selectedOffset, setSelectedOffset] = useState(0);
+  const [scheduling, setScheduling] = useState(false);
   if (!state || !session) return null;
 
   const duty = state.todayDuty;
@@ -59,9 +60,34 @@ export default function DutyPage() {
     apiPost("duty/complete", { userName: myName });
   }
 
+  async function handleAutoSchedule() {
+    setScheduling(true);
+    await apiPost("duty/schedule", { startUser: duty.user || myName });
+    setScheduling(false);
+  }
+
   return (
     <div>
       <PageHeader title="值扫" />
+
+      <CardShell title="自动排班">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-bold text-deep-olive">
+              当前宿舍 {state.members.length} 人，按 {state.members.length || 0} 天一轮自动轮换
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleAutoSchedule}
+            disabled={scheduling || state.members.length === 0}
+            className="btn-dark shrink-0 text-sm disabled:cursor-not-allowed disabled:bg-[#8A9084] disabled:shadow-none"
+          >
+            {scheduling ? "排班中..." : "自动排班"}
+          </button>
+        </div>
+
+      </CardShell>
 
       {/* 3-day Date Slider */}
       <CardShell variant="sage" title="">

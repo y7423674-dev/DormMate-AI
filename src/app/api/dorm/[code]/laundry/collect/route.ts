@@ -9,10 +9,22 @@ export async function POST(
   const { userName, slotIndex } = await request.json();
 
   const state = loadServerDormState(code);
+  if (slotIndex === undefined || slotIndex === "") {
+    const hasUserSlots = state.balcony.slots.some((slot) => slot.user === userName);
+    if (!hasUserSlots) {
+      return NextResponse.json({ error: "没有可收取的晾晒记录" }, { status: 404 });
+    }
+
+    state.balcony = {
+      ...state.balcony,
+      slots: state.balcony.slots.filter((slot) => slot.user !== userName),
+    };
+    saveServerDormState(state);
+    return NextResponse.json(state);
+  }
+
   const targetIndex =
-    slotIndex === undefined || slotIndex === ""
-      ? state.balcony.slots.findIndex((slot) => slot.user === userName)
-      : Number(slotIndex);
+    Number(slotIndex);
 
   if (
     !Number.isInteger(targetIndex) ||

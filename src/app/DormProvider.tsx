@@ -5,14 +5,25 @@ import type { DormState, UserSession } from "@/data/types";
 import { loadUserSession, saveUserSession } from "@/lib/storage";
 import { broadcastStateUpdate, initBroadcast, closeBroadcast } from "@/lib/broadcast";
 
+type AuthPayload = {
+  username: string;
+  password: string;
+  dormCode?: string;
+  role?: "member" | "leader";
+};
+
 type DormContextType = {
   state: DormState | null;
   session: UserSession | null;
+  authReady: boolean;
+  login: (payload: AuthPayload) => Promise<string | null>;
+  register: (payload: Required<AuthPayload>) => Promise<string | null>;
   joinDorm: (nickname: string, dormCode: string, role: "member" | "leader") => Promise<string | null>;
+  updateNickname: (nickname: string) => Promise<string | null>;
   refreshState: () => Promise<void>;
-  apiPost: (path: string, body: Record<string, unknown>) => Promise<void>;
+  apiPost: (path: string, body: Record<string, unknown>) => Promise<string | null>;
   sendAiMessage: (message: string) => Promise<string>;
-  clearSession: () => void;
+  clearSession: () => Promise<void>;
 };
 
 const DormContext = createContext<DormContextType | null>(null);
@@ -28,26 +39,136 @@ export function DormProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<UserSession | null>(() =>
     typeof window === "undefined" ? null : loadUserSession()
   );
+  const [authReady, setAuthReady] = useState(false);
   const dormCode = state?.dormCode;
-
-  // Load session from localStorage and fetch state from server on mount
-  useEffect(() => {
-    if (session) {
-      fetch(`/api/dorm/${session.dormCode}`)
-        .then((r) => r.json())
-        .then((data) => setState(data as DormState))
-        .catch(() => setState(null));
+  const effectiveSession = session && state
+    ? {
+      ...session,
+      role: state.members.find((member) => member.name === session.nickname)?.role || session.role,
     }
-  }, [session]);
+    : session;
 
-  // BroadcastChannel for multi-tab sync
+  useEffect(() => {
+    let cancelled = false;
+
+    fetch("/api/auth/me", { cache: "no-store" })
+      .then(async (res) => {
+        if (!res.ok) return null;
+        return res.json();
+      })
+      .then((data) => {
+        if (cancelled) return;
+        if (data?.session) {
+          setSession(data.session as UserSession);
+          setState(data.state as DormState);
+          saveUserSession(data.session as UserSession);
+        } else {
+          setSession(null);
+          setState(null);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSession(null);
+          setState(null);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setAuthReady(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   useEffect(() => {
     if (!dormCode) return;
     initBroadcast((remoteState) => {
       setState(remoteState);
     });
-    return () => { closeBroadcast(); };
+    return () => {
+      closeBroadcast();
+    };
   }, [dormCode]);
+
+  useEffect(() => {
+    if (!authReady || !session || state) return;
+
+    let cancelled = false;
+    fetch(`/api/dorm/${session.dormCode}`, { cache: "no-store" })
+      .then(async (res) => {
+        if (!res.ok) return null;
+        return res.json();
+      })
+      .then((data) => {
+        if (!cancelled && data) {
+          setState(data as DormState);
+          broadcastStateUpdate(data as DormState);
+        }
+      })
+      .catch(() => {
+        // keep the authenticated shell mounted; pages can show their own empty state
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authReady, session, state]);
+
+  const applyAuthResponse = useCallback(async (res: Response): Promise<string | null> => {
+    const data = await res.json();
+    if (!res.ok) {
+      return String(data.error || "操作失败，请稍后再试");
+    }
+
+    const nextSession = data.session as UserSession;
+    const nextState = data.state as DormState;
+    setSession(nextSession);
+    setState(nextState);
+    saveUserSession(nextSession);
+    broadcastStateUpdate(nextState);
+    return null;
+  }, []);
+
+  const login = useCallback(async (payload: AuthPayload) => {
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      return applyAuthResponse(res);
+    } catch {
+      return "登录失败，请稍后再试";
+    }
+  }, [applyAuthResponse]);
+
+  const register = useCallback(async (payload: Required<AuthPayload>) => {
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      return applyAuthResponse(res);
+    } catch {
+      return "注册失败，请稍后再试";
+    }
+  }, [applyAuthResponse]);
+
+  const updateNickname = useCallback(async (nickname: string) => {
+    try {
+      const res = await fetch("/api/auth/nickname", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nickname }),
+      });
+      return applyAuthResponse(res);
+    } catch {
+      return "修改昵称失败，请稍后再试";
+    }
+  }, [applyAuthResponse]);
 
   const refreshState = useCallback(async () => {
     if (!session) return;
@@ -56,12 +177,13 @@ export function DormProvider({ children }: { children: ReactNode }) {
       const data = await res.json();
       setState(data as DormState);
       broadcastStateUpdate(data);
-    } catch { /* ignore */ }
+    } catch {
+      // ignore transient refresh errors
+    }
   }, [session]);
 
-  // Generic API POST helper — calls API, updates state, broadcasts
   const apiPost = useCallback(async (path: string, body: Record<string, unknown>) => {
-    if (!session) return;
+    if (!session) return "请先登录";
     try {
       const res = await fetch(`/api/dorm/${session.dormCode}/${path}`, {
         method: "POST",
@@ -69,9 +191,22 @@ export function DormProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify(body),
       });
       const data = await res.json();
-      setState(data as DormState);
-      broadcastStateUpdate(data);
-    } catch { /* ignore */ }
+      if (!res.ok) {
+        return String(data.error || "操作失败，请稍后再试");
+      }
+
+      const nextState = (data.state || data) as DormState;
+      if (data.session) {
+        const nextSession = data.session as UserSession;
+        setSession(nextSession);
+        saveUserSession(nextSession);
+      }
+      setState(nextState);
+      broadcastStateUpdate(nextState);
+      return null;
+    } catch {
+      return "操作失败，请稍后再试";
+    }
   }, [session]);
 
   const joinDorm = useCallback(async (nickname: string, dormCode: string, role: "member" | "leader") => {
@@ -115,14 +250,33 @@ export function DormProvider({ children }: { children: ReactNode }) {
     }
   }, [session]);
 
-  const clearSession = useCallback(() => {
+  const clearSession = useCallback(async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } catch {
+      // local cleanup still applies
+    }
     setSession(null);
     setState(null);
     localStorage.removeItem("dormmate_user_session");
   }, []);
 
   return (
-    <DormContext.Provider value={{ state, session, joinDorm, refreshState, apiPost, sendAiMessage, clearSession }}>
+    <DormContext.Provider
+      value={{
+        state,
+        session: effectiveSession,
+        authReady,
+        login,
+        register,
+        joinDorm,
+        updateNickname,
+        refreshState,
+        apiPost,
+        sendAiMessage,
+        clearSession,
+      }}
+    >
       {children}
     </DormContext.Provider>
   );

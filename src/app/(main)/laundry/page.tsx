@@ -6,7 +6,6 @@ import type { DormState } from "@/data/types";
 import AppIcon, { type AppIconName } from "@/components/AppIcon";
 import PageHeader from "@/components/PageHeader";
 import CardShell from "@/components/CardShell";
-import StatusBadge from "@/components/StatusBadge";
 import { addDays, formatShortDate, toDateISO } from "@/lib/dateUtils";
 
 type WeatherForecast = {
@@ -139,7 +138,6 @@ export default function LaundryPage() {
     await apiPost("laundry/dry", { userName: myName, type: dryType, collectTime: collectTime.trim() });
     setSubmitting(false);
     setShowModal(false);
-    setFeedback(`已登记晾晒，预计 ${collectTime.trim()} 收衣。`);
   }
 
   return (
@@ -190,12 +188,22 @@ export default function LaundryPage() {
 
       {/* Balcony Occupancy */}
       <CardShell title="阳台占用情况">
-        <p className="text-base font-semibold text-deep-olive">
-          当前占用：<strong>{balcony.slots.length}</strong> / {balcony.totalSlots} 个位置
-        </p>
-        <p className="text-sm text-muted-olive">
-          剩余位置：{remainingSlots} 个
-        </p>
+        <div>
+          <p className="text-base font-semibold text-deep-olive">当前占用</p>
+          <p className="mt-0.5 text-sm text-muted-olive">
+            <strong className="text-deep-olive">{balcony.slots.length}</strong> / {balcony.totalSlots} 个位置
+          </p>
+        </div>
+        <div className="mt-3 grid grid-cols-4 gap-1.5" aria-hidden="true">
+          {Array.from({ length: balcony.totalSlots }).map((_, index) => (
+            <span
+              key={index}
+              className={`h-1.5 rounded-full ${
+                index < balcony.slots.length ? "bg-[#A7D86D]" : "bg-[#E7ECDR]"
+              }`}
+            />
+          ))}
+        </div>
         {feedback && (
           <p className="mt-3 rounded-[18px] border border-white/75 bg-[#EEF5E8] px-3 py-2 text-sm font-semibold text-[#5F684D]">
             {feedback}
@@ -203,17 +211,18 @@ export default function LaundryPage() {
         )}
 
         {balcony.slots.length > 0 && (
-          <div className="space-y-2 mt-3">
+          <div className="mt-4 divide-y divide-[#E3E8DD]">
             {balcony.slots.map((slot, i) => (
-              <div key={`${slot.user}-${i}`} className="grid grid-cols-[minmax(0,1fr)_86px_76px] items-center gap-2 rounded-[18px] bg-white/55 px-3 py-2 text-sm">
-                <div className="flex min-w-0 items-center gap-2">
-                  <span className="truncate font-semibold text-deep-olive">{slot.user}</span>
-                  {slot.user === myName && <StatusBadge label="我的" variant="success" />}
+              <div key={`${slot.user}-${i}`} className="flex items-center gap-3 py-3 text-sm">
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[#A7D86D]" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="truncate font-semibold text-deep-olive">{slot.user}</span>
+                    {slot.user === myName && <span className="text-xs font-semibold text-[#6D8F3E]">我的</span>}
+                  </div>
+                  <p className="mt-0.5 truncate text-xs font-medium text-muted-olive">{slot.type}</p>
                 </div>
-                <span className="flex justify-center">
-                  <StatusBadge label={slot.type} variant="default" />
-                </span>
-                <span className="whitespace-nowrap text-muted-olive">{slot.collectTime}收衣</span>
+                <span className="whitespace-nowrap text-xs font-semibold text-muted-olive">{slot.collectTime} 收衣</span>
               </div>
             ))}
           </div>

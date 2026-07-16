@@ -23,6 +23,7 @@ export type DutyScheduleDay = {
   itemCount: number;
   statusLabel: string;
   isToday: boolean;
+  user?: string;
 };
 
 export type UtilityState = {
@@ -68,9 +69,19 @@ export type Announcement = {
   readByMe: boolean;
 };
 
+export type LeaderTransferRequest = {
+  id: string;
+  from: string;
+  to: string;
+  status: "pending";
+  createdAt: string;
+};
+
 export type ExpenseConfirmation = {
   member: string;
   confirmed: boolean;
+  status?: "unpaid" | "submitted" | "confirmed" | "rejected";
+  submittedAt?: string;
 };
 
 export type ExpenseShare = {
@@ -131,6 +142,7 @@ export type DormState = {
   laundry: LaundryState;
   balcony: BalconyState;
   announcements: Announcement[];
+  leaderTransferRequests: LeaderTransferRequest[];
   expenses: ExpenseRecord[];
   aiLogs: AiLog[];
   monthlyStats: MonthlyStats;

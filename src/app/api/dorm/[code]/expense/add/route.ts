@@ -8,15 +8,19 @@ export async function POST(
   { params }: { params: Promise<{ code: string }> }
 ) {
   const { code } = await params;
-  const { title, amount, creator, note, splitMethod, splitShares } = await request.json();
+  const { title, amount, creator, note, splitMethod, splitShares, dateISO } = await request.json();
 
   const cleanTitle = String(title || "").trim();
   const cleanCreator = String(creator || "").trim();
   const cleanNote = String(note || "").trim();
+  const cleanDateISO = String(dateISO || "").trim();
   const parsedAmount = Number(amount);
 
   if (!cleanTitle || !cleanCreator || !Number.isFinite(parsedAmount) || parsedAmount <= 0) {
     return NextResponse.json({ error: "支出标题、金额和创建者不能为空" }, { status: 400 });
+  }
+  if (cleanDateISO && !/^\d{4}-\d{2}-\d{2}$/.test(cleanDateISO)) {
+    return NextResponse.json({ error: "支出日期格式不正确" }, { status: 400 });
   }
 
   const state = loadServerDormState(code);
@@ -51,6 +55,8 @@ export async function POST(
     : isRatio
       ? 0
       : Math.round((amountRounded / memberCount) * 100) / 100;
+  const expenseDate = cleanDateISO ? new Date(`${cleanDateISO}T00:00:00`) : new Date();
+  const expenseDateISO = cleanDateISO || toDateISO(expenseDate);
 
   const newExpense: ExpenseRecord = {
     id: `exp-${Date.now()}`,
@@ -61,11 +67,14 @@ export async function POST(
     perPerson,
     splitShares: isRatio ? finalRatioShares : undefined,
     note: cleanNote || "无备注",
-    date: formatMonthDay(),
-    dateISO: toDateISO(),
+    date: formatMonthDay(expenseDate),
+    dateISO: expenseDateISO,
     confirmations: state.members.map((member) => ({
       member: member.name,
       confirmed: isCreatorOnly || member.name === cleanCreator || (isRatio && !finalRatioShares.some((share) => share.member === member.name)),
+      status: isCreatorOnly || member.name === cleanCreator || (isRatio && !finalRatioShares.some((share) => share.member === member.name))
+        ? "confirmed"
+        : "unpaid",
     })),
   };
 

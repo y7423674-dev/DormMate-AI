@@ -12,10 +12,12 @@ export default function AnnouncementPage() {
   const [showAddHint, setShowAddHint] = useState(false);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const [pinNewAnnouncement, setPinNewAnnouncement] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
   if (!state || !session) return null;
 
+  const isLeader = session.role === "leader";
   const pinned = state.announcements.find((a) => a.pinned);
 
   function handleRead() {
@@ -31,14 +33,19 @@ export default function AnnouncementPage() {
     }
     setFormError("");
     setSubmitting(true);
-    await apiPost("announcement/add", {
+    const error = await apiPost("announcement/add", {
       title: title.trim(),
       content: content.trim(),
-      author: session.nickname,
+      pinned: isLeader && pinNewAnnouncement,
     });
     setSubmitting(false);
+    if (error) {
+      setFormError(error);
+      return;
+    }
     setTitle("");
     setContent("");
+    setPinNewAnnouncement(false);
     setShowAddHint(false);
   }
 
@@ -82,6 +89,17 @@ export default function AnnouncementPage() {
                 placeholder="写下需要同步给舍友的事项..."
               />
             </div>
+            {isLeader && (
+              <label className="flex items-center justify-between rounded-[18px] bg-[#F6F8F2] px-3 py-3 text-sm font-bold text-deep-olive">
+                <span>置顶这条公告</span>
+                <input
+                  type="checkbox"
+                  checked={pinNewAnnouncement}
+                  onChange={(e) => setPinNewAnnouncement(e.target.checked)}
+                  className="h-5 w-5 accent-[#20251E]"
+                />
+              </label>
+            )}
             {formError && (
               <p className="text-sm font-bold text-[#8A5A25]">{formError}</p>
             )}
@@ -90,6 +108,7 @@ export default function AnnouncementPage() {
                 type="button"
                 onClick={() => {
                   setShowAddHint(false);
+                  setPinNewAnnouncement(false);
                   setFormError("");
                 }}
                 className="btn-sage flex-1 text-sm"
@@ -133,9 +152,13 @@ export default function AnnouncementPage() {
         </CardShell>
       )}
 
-      {state.announcements.filter((a) => !a.pinned).map((ann) => (
+      <div className="mb-2 px-1 text-sm font-extrabold text-[#5F684D]">全部公告</div>
+      {state.announcements.map((ann) => (
         <CardShell key={ann.id} title="">
-          <h3 className="text-base font-bold text-deep-olive">{ann.title}</h3>
+          <div className="flex items-start justify-between gap-3">
+            <h3 className="text-base font-bold text-deep-olive">{ann.title}</h3>
+            {ann.pinned && <StatusBadge label="置顶" variant="warning" />}
+          </div>
           <p className="text-sm text-muted-olive">{ann.date} · {ann.author}发布</p>
           <p className="text-sm text-olive-ink mt-2 leading-relaxed">{ann.content}</p>
           <div className="mt-3 text-sm text-muted-olive">

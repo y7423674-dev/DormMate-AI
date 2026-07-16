@@ -42,6 +42,7 @@ export async function POST(
     confirmations: resetState.members.map((member) => ({
       member: member.name,
       confirmed: member.name === expense.creator,
+      status: member.name === expense.creator ? "confirmed" : "unpaid",
     })),
   }));
 

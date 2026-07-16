@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useState } from "react";
 import { useDorm } from "@/app/DormProvider";
 import type { ExpenseRecord } from "@/data/types";
@@ -11,8 +12,28 @@ import StatusBadge from "@/components/StatusBadge";
 
 type SplitMethod = "equal" | "creatorOnly" | "ratio";
 
+const COMMON_EXPENSE_TYPES = ["水费", "电费", "网费", "公共用品", "清洁用品", "维修费", "寝室活动"];
+
 function isCreatorOnlyExpense(exp: ExpenseRecord) {
   return exp.splitMethod === "个人支付";
+}
+
+function getConfirmationStatus(confirmation?: ExpenseRecord["confirmations"][number]) {
+  if (!confirmation) return "unpaid";
+  return confirmation.status || (confirmation.confirmed ? "confirmed" : "unpaid");
+}
+
+function getStatusBadge(status: string) {
+  if (status === "confirmed") return { label: "已完成", variant: "success" };
+  if (status === "submitted") return { label: "待收款人确认", variant: "warning" };
+  if (status === "rejected") return { label: "需重新确认", variant: "danger" };
+  return { label: "待支付", variant: "default" };
+}
+
+function getMyShareAmount(exp: ExpenseRecord, memberName: string) {
+  const ratioShare = exp.splitShares?.find((share) => share.member === memberName);
+  if (ratioShare) return ratioShare.amount;
+  return exp.perPerson;
 }
 
 function getExpenseDateISO(exp: ExpenseRecord, fallbackYear: number) {
@@ -32,11 +53,14 @@ export default function PaymentPage() {
   const [selectedExpenseDate, setSelectedExpenseDate] = useState(todayISO);
   const [showAddForm, setShowAddForm] = useState(false);
   const [expenseTitle, setExpenseTitle] = useState("");
+  const [customExpenseType, setCustomExpenseType] = useState("");
+  const [showCustomExpenseType, setShowCustomExpenseType] = useState(false);
   const [expenseAmount, setExpenseAmount] = useState("");
   const [expenseNote, setExpenseNote] = useState("");
   const [splitMethod, setSplitMethod] = useState<SplitMethod>("equal");
   const [splitRatios, setSplitRatios] = useState<Record<string, string>>({});
   const [confirmingExpense, setConfirmingExpense] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState<ExpenseRecord | null>(null);
   const [formError, setFormError] = useState("");
   const [feedback, setFeedback] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -77,8 +101,36 @@ export default function PaymentPage() {
     });
   }
 
-  function handleConfirm(expenseId: string) {
-    apiPost("expense/confirm", { expenseId, memberName: myName });
+  async function handleSubmitTransfer(expenseId: string) {
+    const error = await apiPost("expense/confirm", { expenseId, memberName: myName, action: "submit" });
+    if (error) {
+      setFeedback(error);
+      return;
+    }
+    setFeedback("已提交给收款人确认。");
+    setSelectedPayment(null);
+  }
+
+  async function handleReceiptAction(expenseId: string, memberName: string, action: "confirm" | "reject") {
+    const error = await apiPost("expense/confirm", { expenseId, memberName, action });
+    if (error) {
+      setFeedback(error);
+      return;
+    }
+    setFeedback(action === "confirm" ? "已确认收到转账。" : "已标记未收到，对方需要重新确认。");
+  }
+
+  function handleCopyPaymentInfo(exp: ExpenseRecord) {
+    const amount = getMyShareAmount(exp, myName).toFixed(2);
+    const text = `${exp.title}，${amount}元，收款人：${exp.creator}，收款方式：微信转账`;
+    navigator.clipboard.writeText(text);
+    setFeedback("收款信息已复制。");
+  }
+
+  function openPaymentDetail(exp: ExpenseRecord) {
+    document.getElementById("main-scroll-container")?.scrollTo({ top: 0, left: 0 });
+    window.scrollTo({ top: 0, left: 0 });
+    setSelectedPayment(exp);
   }
 
   async function handleDelete(expenseId: string) {
@@ -94,6 +146,8 @@ export default function PaymentPage() {
 
   function resetAddExpenseForm() {
     setExpenseTitle("");
+    setCustomExpenseType("");
+    setShowCustomExpenseType(false);
     setExpenseAmount("");
     setExpenseNote("");
     setSplitMethod("equal");
@@ -105,7 +159,7 @@ export default function PaymentPage() {
   function validateExpenseForm() {
     const amount = Number(expenseAmount);
     if (!expenseTitle.trim()) {
-      setFormError("请填写支出标题");
+      setFormError("请选择或填写支出类型");
       return null;
     }
     if (!Number.isFinite(amount) || amount <= 0) {
@@ -131,6 +185,18 @@ export default function PaymentPage() {
     setConfirmingExpense(true);
   }
 
+  function handleAddExpenseType() {
+    const cleanType = customExpenseType.trim();
+    if (!cleanType) {
+      setFormError("请填写新的支出类型");
+      return;
+    }
+    setExpenseTitle(cleanType);
+    setCustomExpenseType("");
+    setShowCustomExpenseType(false);
+    setFormError("");
+  }
+
   async function handleAddExpense() {
     const amount = validateExpenseForm();
     if (!amount) return;
@@ -144,6 +210,7 @@ export default function PaymentPage() {
       note: expenseNote.trim(),
       splitMethod,
       splitShares: splitMethod === "ratio" ? splitRatios : undefined,
+      dateISO: selectedExpenseDate,
     });
     setSubmitting(false);
     resetAddExpenseForm();
@@ -267,7 +334,12 @@ export default function PaymentPage() {
       {monthlyExpenses.map((exp) => {
         const confirmedCount = exp.confirmations.filter((c) => c.confirmed).length;
         const total = exp.confirmations.length;
-        const confirmedByMe = exp.confirmations.find((c) => c.member === myName)?.confirmed;
+        const myConfirmation = exp.confirmations.find((c) => c.member === myName);
+        const myPaymentStatus = getConfirmationStatus(myConfirmation);
+        const myPaymentBadge = getStatusBadge(myPaymentStatus);
+        const pendingReceipts = exp.confirmations.filter(
+          (c) => c.member !== exp.creator && getConfirmationStatus(c) === "submitted"
+        );
         const creatorOnly = isCreatorOnlyExpense(exp);
         const ratioSplit = Boolean(exp.splitShares?.length);
         return (
@@ -300,17 +372,60 @@ export default function PaymentPage() {
               <>
                 <p className="text-sm text-muted-olive mt-3">完成情况：{confirmedCount}/{total}人</p>
                 <div className="space-y-1 mt-2">
-                  {exp.confirmations.map((c) => (
+                  {exp.confirmations.map((c) => {
+                    const badge = getStatusBadge(getConfirmationStatus(c));
+                    return (
                     <div key={c.member} className="flex items-center gap-2 text-sm">
                       <span className="text-deep-olive">{c.member}</span>
                       <StatusBadge
-                        label={c.confirmed ? "已完成" : "未完成"}
-                        variant={c.confirmed ? "success" : "warning"}
+                        label={badge.label}
+                        variant={badge.variant}
                       />
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </>
+            )}
+
+            {isCreator(exp) && pendingReceipts.length > 0 && (
+              <div className="mt-3 space-y-2 rounded-[18px] bg-[#FFF8ED] px-3 py-3">
+                {pendingReceipts.map((receipt) => (
+                  <div key={receipt.member} className="space-y-2">
+                    <p className="text-sm font-bold text-[#6B5734]">
+                      {receipt.member} 提交了 {getMyShareAmount(exp, receipt.member).toFixed(2)} 元转账确认
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleReceiptAction(exp.id, receipt.member, "confirm")}
+                        className="btn-dark flex-1 text-sm"
+                      >
+                        确认收到
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleReceiptAction(exp.id, receipt.member, "reject")}
+                        className="btn-sage flex-1 text-sm"
+                      >
+                        未收到
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {!creatorOnly && !isCreator(exp) && (
+              <div className="mt-3 flex items-center justify-between gap-3 rounded-[18px] bg-[#F6F8F2] px-3 py-2">
+                <div>
+                  <p className="text-sm font-bold text-deep-olive">我的状态</p>
+                  {myPaymentStatus === "rejected" && (
+                    <p className="mt-0.5 text-xs font-semibold text-[#8A5A25]">收款人尚未确认收到转账。</p>
+                  )}
+                </div>
+                <StatusBadge label={myPaymentBadge.label} variant={myPaymentBadge.variant} />
+              </div>
             )}
 
             {/* Role-based buttons */}
@@ -327,12 +442,14 @@ export default function PaymentPage() {
                   删除
                 </button>
               )}
-              {!creatorOnly && !isCreator(exp) && !confirmedByMe && (
-                <button
-                  onClick={() => handleConfirm(exp.id)}
-                  className="btn-dark text-sm"
-                >
-                  我已完成
+              {!creatorOnly && !isCreator(exp) && (myPaymentStatus === "unpaid" || myPaymentStatus === "rejected") && (
+                <button onClick={() => openPaymentDetail(exp)} className="btn-dark text-sm">
+                  去缴费
+                </button>
+              )}
+              {!creatorOnly && !isCreator(exp) && myPaymentStatus === "submitted" && (
+                <button disabled className="btn-sage text-sm disabled:cursor-not-allowed disabled:opacity-70">
+                  待收款人确认
                 </button>
               )}
             </div>
@@ -369,13 +486,64 @@ export default function PaymentPage() {
                   <h3 className="mb-3 text-lg font-bold text-deep-olive">新增支出记录</h3>
                   <div className="space-y-3">
                     <div>
-                      <label className="mb-1 block text-sm font-semibold text-deep-olive">支出标题</label>
-                      <input
-                        value={expenseTitle}
-                        onChange={(e) => setExpenseTitle(e.target.value)}
-                        className="input-default"
-                        placeholder="例如：公共用品"
-                      />
+                      <label className="mb-1 block text-sm font-semibold text-deep-olive">支出类型</label>
+                      <div className="flex flex-wrap gap-2">
+                        {COMMON_EXPENSE_TYPES.map((type) => (
+                          <button
+                            key={type}
+                            type="button"
+                            onClick={() => {
+                              setExpenseTitle(type);
+                              setFormError("");
+                            }}
+                            className={`rounded-[14px] border px-3 py-1.5 text-xs font-bold transition ${
+                              expenseTitle.trim() === type
+                                ? "border-[#A7D86D] bg-[#20251E] text-white"
+                                : "border-[#E3E8DD] bg-[#EEF5E8] text-[#5F684D] hover:bg-white hover:text-[#1F241E]"
+                            }`}
+                          >
+                            {type}
+                          </button>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowCustomExpenseType((showing) => {
+                              if (showing) setCustomExpenseType("");
+                              return !showing;
+                            });
+                            setFormError("");
+                          }}
+                          className={`flex h-[31px] min-w-[31px] items-center justify-center rounded-[14px] border border-dashed px-3 text-base font-extrabold leading-none transition ${
+                            showCustomExpenseType
+                              ? "border-[#A7D86D] bg-white text-[#1F241E]"
+                              : "border-[#BFC8B5] bg-white/55 text-[#5F684D] hover:border-[#A7D86D] hover:text-[#1F241E]"
+                          }`}
+                        >
+                          +
+                        </button>
+                      </div>
+                      {expenseTitle && (
+                        <p className="mt-2 text-xs font-semibold text-muted-olive">
+                          已选择：<span className="text-deep-olive">{expenseTitle}</span>
+                        </p>
+                      )}
+                      {showCustomExpenseType && (
+                        <div className="mt-2 grid grid-cols-[minmax(0,1fr)_72px] gap-2">
+                          <input
+                            value={customExpenseType}
+                            onChange={(e) => {
+                              setCustomExpenseType(e.target.value);
+                              setFormError("");
+                            }}
+                            className="input-default"
+                            placeholder="新的支出类型"
+                          />
+                          <button type="button" onClick={handleAddExpenseType} className="btn-sage text-sm">
+                            添加
+                          </button>
+                        </div>
+                      )}
                     </div>
                     <div>
                       <label className="mb-1 block text-sm font-semibold text-deep-olive">总金额</label>
@@ -499,7 +667,7 @@ export default function PaymentPage() {
                   <h3 className="mb-3 text-lg font-bold text-deep-olive">确认支出记录</h3>
                   <div className="space-y-2 rounded-[22px] bg-[#EEF5E8] p-4 text-sm">
                     <div className="flex justify-between gap-3">
-                      <span className="text-muted-olive">标题</span>
+                      <span className="text-muted-olive">支出类型</span>
                       <strong className="text-right text-deep-olive">{expenseTitle.trim()}</strong>
                     </div>
                     <div className="flex justify-between gap-3">
@@ -571,6 +739,74 @@ export default function PaymentPage() {
                   </div>
                 </>
               )}
+          </div>
+        </div>
+      )}
+
+      {selectedPayment && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-[rgba(0,0,0,0.3)]" onClick={() => setSelectedPayment(null)} />
+          <div className="relative w-full rounded-[30px] border border-white/75 bg-white/90 p-5 shadow-[0_24px_70px_rgba(32,37,30,0.22)] backdrop-blur-xl">
+            <h3 className="mb-3 text-lg font-bold text-deep-olive">去缴费</h3>
+            <div className="space-y-2 rounded-[22px] bg-[#EEF5E8] p-4 text-sm">
+              <div className="flex justify-between gap-3">
+                <span className="text-muted-olive">费用名称</span>
+                <strong className="text-right text-deep-olive">{selectedPayment.title}</strong>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-muted-olive">总金额</span>
+                <strong className="text-deep-olive">{selectedPayment.amount.toFixed(2)}元</strong>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-muted-olive">我的分摊金额</span>
+                <strong className="text-deep-olive">{getMyShareAmount(selectedPayment, myName).toFixed(2)}元</strong>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-muted-olive">收款人</span>
+                <strong className="text-deep-olive">{selectedPayment.creator}</strong>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-muted-olive">收款方式</span>
+                <strong className="text-deep-olive">微信转账</strong>
+              </div>
+            </div>
+
+            <div className="mt-3 rounded-[22px] border border-[#D8E0CF] bg-[#F6F8F2] p-4 text-center">
+              <span className="text-sm font-bold text-deep-olive">微信收款码</span>
+              <div className="mt-3 flex justify-center">
+                <Image
+                  src="/images/wechat-pay-qr.jpg"
+                  alt={`${selectedPayment.creator}的微信收款码`}
+                  width={220}
+                  height={220}
+                  className="h-48 w-48 rounded-[18px] border border-white bg-white object-contain p-2 shadow-[0_10px_28px_rgba(32,37,30,0.12)]"
+                  priority
+                />
+              </div>
+            </div>
+
+            {getConfirmationStatus(selectedPayment.confirmations.find((c) => c.member === myName)) === "rejected" && (
+              <p className="mt-3 rounded-[16px] bg-[#FFF8ED] px-3 py-2 text-sm font-bold text-[#8A5A25]">
+                收款人尚未确认收到转账，请核对后重新提交。
+              </p>
+            )}
+
+            <div className="mt-4 flex gap-3">
+              <button
+                type="button"
+                onClick={() => handleCopyPaymentInfo(selectedPayment)}
+                className="btn-sage flex-1 text-center"
+              >
+                复制收款信息
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSubmitTransfer(selectedPayment.id)}
+                className="btn-dark flex-1 text-center"
+              >
+                我已完成转账
+              </button>
+            </div>
           </div>
         </div>
       )}

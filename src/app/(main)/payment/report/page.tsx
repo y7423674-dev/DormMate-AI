@@ -32,26 +32,81 @@ function sumExpenses(expenses: ExpenseRecord[]) {
 }
 
 function buildExpenseChartData(expenses: ExpenseRecord[]) {
-  return expenses.map((expense) => ({
-    category: expense.title,
-    amount: expense.amount,
+  const merged = new Map<string, number>();
+  expenses.forEach((expense) => {
+    const category = expense.title.trim() || "未命名支出";
+    merged.set(category, Math.round(((merged.get(category) || 0) + expense.amount) * 100) / 100);
+  });
+  return Array.from(merged, ([category, amount]) => ({ category, amount }));
+}
+
+function getPreviousMonth(date = new Date()) {
+  return new Date(date.getFullYear(), date.getMonth() - 1, 1);
+}
+
+function getMonthKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function getMonthLabel(date: Date) {
+  return `${date.getFullYear()}年${date.getMonth() + 1}月`;
+}
+
+function getExpenseDateISO(expense: ExpenseRecord, fallbackYear: number) {
+  if (expense.dateISO) return expense.dateISO;
+  const match = expense.date.match(/(\d+)月(\d+)日/u);
+  if (!match) return "";
+  const month = match[1].padStart(2, "0");
+  const day = match[2].padStart(2, "0");
+  return `${fallbackYear}-${month}-${day}`;
+}
+
+function buildWeeklyExpenseData(expenses: ExpenseRecord[], month: Date) {
+  const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+  const weekCount = Math.ceil(daysInMonth / 7);
+  const weeklyTotals = Array.from({ length: weekCount }, (_, index) => ({
+    week: `第${index + 1}周`,
+    amount: 0,
   }));
+
+  expenses.forEach((expense) => {
+    const dateISO = getExpenseDateISO(expense, month.getFullYear());
+    const day = Number(dateISO.slice(-2));
+    if (!Number.isFinite(day) || day <= 0) return;
+    const weekIndex = Math.min(Math.ceil(day / 7) - 1, weeklyTotals.length - 1);
+    weeklyTotals[weekIndex].amount = Math.round((weeklyTotals[weekIndex].amount + expense.amount) * 100) / 100;
+  });
+
+  return weeklyTotals;
+}
+
+function getPeakWeek(data: { week: string; amount: number }[]) {
+  return data.reduce(
+    (peak, current) => current.amount > peak.amount ? current : peak,
+    { week: "第1周", amount: 0 }
+  );
 }
 
 export default function ReportPage() {
   const { state } = useDorm();
   if (!state) return null;
 
-  const stats = state.monthlyStats;
-  const publicExpenses = state.expenses.filter((expense) => !isPersonalExpense(expense));
-  const personalExpenses = state.expenses.filter(isPersonalExpense);
+  const reportMonth = getPreviousMonth();
+  const reportMonthKey = getMonthKey(reportMonth);
+  const reportMonthLabel = getMonthLabel(reportMonth);
+  const reportExpenses = state.expenses.filter((expense) =>
+    getExpenseDateISO(expense, reportMonth.getFullYear()).startsWith(reportMonthKey)
+  );
+  const publicExpenses = reportExpenses.filter((expense) => !isPersonalExpense(expense));
+  const personalExpenses = reportExpenses.filter(isPersonalExpense);
   const payableExpenses = publicExpenses;
   const publicTotal = sumExpenses(publicExpenses);
   const personalTotal = sumExpenses(personalExpenses);
   const publicPerPerson = Math.round((publicTotal / Math.max(state.members.length, 1)) * 100) / 100;
   const publicExpenseData = buildExpenseChartData(publicExpenses);
   const personalExpenseData = buildExpenseChartData(personalExpenses);
-  const weeklyExpenseData = stats.weeklyExpenses;
+  const weeklyExpenseData = buildWeeklyExpenseData(reportExpenses, reportMonth);
+  const peakWeek = getPeakWeek(weeklyExpenseData);
 
   const suggestions = [
     "建议水电费固定在月初记录，避免月底遗漏。",
@@ -61,12 +116,12 @@ export default function ReportPage() {
 
   return (
     <div>
-      <PageHeader title="6月AI费用报表" showBack backHref="/payment" />
+      <PageHeader title={`${reportMonthLabel}AI费用报表`} showBack backHref="/payment" />
 
       {/* AI Summary */}
       <CardShell variant="sage" title="AI 月度总结">
         <p className="text-sm text-olive-ink leading-relaxed">
-          本月公共开支 {publicExpenses.length} 笔，合计{publicTotal}元，人均{publicPerPerson}元。
+          上月公共开支 {publicExpenses.length} 笔，合计{publicTotal}元，人均{publicPerPerson}元。
           个人开支 {personalExpenses.length} 笔，合计{personalTotal}元，仅用于个人记录，不计入宿舍公共缴费。
         </p>
         <button className="btn-sage text-sm mt-3">重新生成AI分析</button>
@@ -100,7 +155,7 @@ export default function ReportPage() {
       <CardShell title="个人开支分析">
         {personalExpenseData.length === 0 ? (
           <p className="rounded-[18px] bg-white/55 px-3 py-3 text-center text-sm font-semibold text-muted-olive">
-            本月暂无个人开支记录。
+            上月暂无个人开支记录。
           </p>
         ) : (
           <>
@@ -148,7 +203,7 @@ export default function ReportPage() {
           </BarChart>
         </ResponsiveContainer>
         <p className="text-sm text-muted-olive mt-3 leading-relaxed">
-          AI解释：第3周支出最高（72元），因电费和公共用品集中采购。第4周最低（14元）。
+          AI解释：{peakWeek.amount > 0 ? `${peakWeek.week}支出最高（${peakWeek.amount}元）。` : "上月暂无支出记录。"}
         </p>
       </CardShell>
 
