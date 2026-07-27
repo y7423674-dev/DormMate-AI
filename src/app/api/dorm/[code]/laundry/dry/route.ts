@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { loadServerDormState, saveServerDormState } from "@/lib/serverStore";
 
 export async function POST(
@@ -8,7 +8,7 @@ export async function POST(
   const { code } = await params;
   const { userName, type, collectTime } = await request.json();
 
-  const state = loadServerDormState(code);
+  const state = await loadServerDormState(code);
   if (!userName || !type || !collectTime) {
     return NextResponse.json({ error: "晾晒信息不完整" }, { status: 400 });
   }
@@ -21,6 +21,6 @@ export async function POST(
     ...state.balcony,
     slots: [...state.balcony.slots, { user: userName, type, collectTime, status: "晾晒中" }],
   };
-  saveServerDormState(state);
+  await saveServerDormState(state);
   return NextResponse.json(state);
 }

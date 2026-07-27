@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { loadServerDormState, saveServerDormState } from "@/lib/serverStore";
 import { getSession } from "@/lib/session";
 
@@ -16,7 +16,7 @@ export async function POST(
   const cleanAction = action === "confirm" || action === "reject" ? action : "submit";
   const targetMember = String(memberName || session.nickname).trim();
 
-  const state = loadServerDormState(code);
+  const state = await loadServerDormState(code);
   const expense = state.expenses.find((exp) => exp.id === expenseId);
   if (!expense) {
     return NextResponse.json({ error: "缴费记录不存在" }, { status: 404 });
@@ -51,6 +51,6 @@ export async function POST(
       }),
     };
   });
-  saveServerDormState(state);
+  await saveServerDormState(state);
   return NextResponse.json(state);
 }

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { loadServerDormState, saveServerDormState } from "@/lib/serverStore";
 
 // GET: load dorm state
@@ -7,7 +7,7 @@ export async function GET(
   { params }: { params: Promise<{ code: string }> }
 ) {
   const { code } = await params;
-  const state = loadServerDormState(code);
+  const state = await loadServerDormState(code);
   return NextResponse.json(state);
 }
 
@@ -18,6 +18,6 @@ export async function PUT(
 ) {
   await params;
   const state = await request.json();
-  saveServerDormState(state);
+  await saveServerDormState(state);
   return NextResponse.json(state);
 }

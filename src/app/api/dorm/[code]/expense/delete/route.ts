@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { loadServerDormState, saveServerDormState } from "@/lib/serverStore";
 
 export async function POST(
@@ -8,7 +8,7 @@ export async function POST(
   const { code } = await params;
   const { expenseId, memberName } = await request.json();
 
-  const state = loadServerDormState(code);
+  const state = await loadServerDormState(code);
   const member = state.members.find((m) => m.name === memberName);
   if (member?.role !== "leader") {
     return NextResponse.json({ error: "只有舍长可以删除缴费记录" }, { status: 403 });
@@ -33,6 +33,6 @@ export async function POST(
     utilityTotal: Math.max(0, Math.round((state.monthlyStats.utilityTotal - expense.amount) * 100) / 100),
   };
 
-  saveServerDormState(state);
+  await saveServerDormState(state);
   return NextResponse.json(state);
 }

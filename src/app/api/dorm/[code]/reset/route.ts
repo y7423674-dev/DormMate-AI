@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { createDefaultDormState } from "@/data/mock";
 import { loadServerDormState, saveServerDormState } from "@/lib/serverStore";
 
@@ -9,7 +9,7 @@ export async function POST(
   { params }: { params: Promise<{ code: string }> }
 ) {
   const { code } = await params;
-  const existingState = loadServerDormState(code);
+  const existingState = await loadServerDormState(code);
   const resetState = createDefaultDormState(code);
   const preservedMembers = existingState.members.length > 0
     ? existingState.members.slice(0, DORM_MEMBER_LIMIT)
@@ -46,6 +46,6 @@ export async function POST(
     })),
   }));
 
-  saveServerDormState(resetState);
+  await saveServerDormState(resetState);
   return NextResponse.json(resetState);
 }

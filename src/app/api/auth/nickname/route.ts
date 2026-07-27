@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { getUserByUsername, renameUser } from "@/lib/authStore";
 import { renameDormMember, syncDormMemberDerivedState } from "@/lib/dormMembers";
 import { loadServerDormState, saveServerDormState } from "@/lib/serverStore";
@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
   if (cleanNickname === session.nickname) {
     return NextResponse.json({
       session,
-      state: loadServerDormState(session.dormCode),
+      state: await loadServerDormState(session.dormCode),
     });
   }
 
@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "该昵称已被使用" }, { status: 409 });
   }
 
-  const state = loadServerDormState(session.dormCode);
+  const state = await loadServerDormState(session.dormCode);
   const renameError = renameDormMember(state, session.nickname, cleanNickname);
   if (renameError) {
     return NextResponse.json({ error: renameError }, { status: 409 });
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     role: renamedUser.role,
   };
   await setSession(nextSession);
-  saveServerDormState(state);
+  await saveServerDormState(state);
 
   return NextResponse.json({
     session: nextSession,

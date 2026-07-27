@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { loadServerDormState, saveServerDormState } from "@/lib/serverStore";
 import { processAiMessage } from "@/data/mockAi";
 import { applyAiActions } from "@/lib/aiEngine";
@@ -141,7 +141,7 @@ async function callDeepSeek(
 export async function POST(request: NextRequest) {
   const { dormCode, userName, message } = await request.json();
 
-  const state = loadServerDormState(dormCode);
+  const state = await loadServerDormState(dormCode);
 
   // Try DeepSeek first, fall back to mock AI
   const result =
@@ -155,7 +155,7 @@ export async function POST(request: NextRequest) {
     ) ?? processAiMessage(userName, message, state);
 
   const newState = applyAiActions(state, result.actions);
-  saveServerDormState(newState);
+  await saveServerDormState(newState);
 
   return NextResponse.json({ state: newState, reply: result.reply, actions: result.actions });
 }

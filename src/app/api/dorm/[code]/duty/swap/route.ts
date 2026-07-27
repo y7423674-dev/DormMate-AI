@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { loadServerDormState, saveServerDormState } from "@/lib/serverStore";
 import { applyAiActions } from "@/lib/aiEngine";
 import type { AiAction } from "@/data/types";
@@ -10,7 +10,7 @@ export async function POST(
   const { code } = await params;
   const { swapType, userName, targetMember } = await request.json();
 
-  const state = loadServerDormState(code);
+  const state = await loadServerDormState(code);
 
   let actions: AiAction[];
   if (swapType === "exchange") {
@@ -29,6 +29,6 @@ export async function POST(
   }
 
   const newState = applyAiActions(state, actions);
-  saveServerDormState(newState);
+  await saveServerDormState(newState);
   return NextResponse.json(newState);
 }

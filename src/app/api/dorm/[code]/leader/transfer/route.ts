@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { updateUserRole } from "@/lib/authStore";
 import { loadServerDormState, saveServerDormState } from "@/lib/serverStore";
 import { getSession, setSession } from "@/lib/session";
@@ -19,7 +19,7 @@ export async function POST(
   }
 
   const { action, targetMember, requestId } = await request.json();
-  const state = loadServerDormState(code);
+  const state = await loadServerDormState(code);
   const myMember = state.members.find((member) => member.name === session.nickname);
   if (!myMember) {
     return jsonError("未找到当前成员", 404);
@@ -55,7 +55,7 @@ export async function POST(
       createdAt: new Date().toISOString(),
     };
     state.leaderTransferRequests.push(transfer);
-    saveServerDormState(state);
+    await saveServerDormState(state);
     return NextResponse.json(state);
   }
 
@@ -92,7 +92,7 @@ export async function POST(
     };
 
     await setSession(nextSession);
-    saveServerDormState(state);
+    await saveServerDormState(state);
     return NextResponse.json({ session: nextSession, state });
   }
 
@@ -101,7 +101,7 @@ export async function POST(
       return jsonError("只有被邀请的舍友可以拒绝转换", 403);
     }
     state.leaderTransferRequests = state.leaderTransferRequests.filter((item) => item.id !== pending.id);
-    saveServerDormState(state);
+    await saveServerDormState(state);
     return NextResponse.json(state);
   }
 
@@ -110,7 +110,7 @@ export async function POST(
       return jsonError("只有发起人可以取消转换", 403);
     }
     state.leaderTransferRequests = state.leaderTransferRequests.filter((item) => item.id !== pending.id);
-    saveServerDormState(state);
+    await saveServerDormState(state);
     return NextResponse.json(state);
   }
 

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { loadServerDormState, saveServerDormState } from "@/lib/serverStore";
 import type { ExpenseRecord, ExpenseShare } from "@/data/types";
 import { formatMonthDay, toDateISO } from "@/lib/dateUtils";
@@ -23,7 +23,7 @@ export async function POST(
     return NextResponse.json({ error: "支出日期格式不正确" }, { status: 400 });
   }
 
-  const state = loadServerDormState(code);
+  const state = await loadServerDormState(code);
   const memberCount = Math.max(state.members.length, 1);
   const isCreatorOnly = splitMethod === "creatorOnly";
   const isRatio = splitMethod === "ratio";
@@ -89,6 +89,6 @@ export async function POST(
     utilityTotal: Math.round((state.monthlyStats.utilityTotal + newExpense.amount) * 100) / 100,
   };
 
-  saveServerDormState(state);
+  await saveServerDormState(state);
   return NextResponse.json(state);
 }

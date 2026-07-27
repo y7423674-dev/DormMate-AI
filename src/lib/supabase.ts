@@ -1,8 +1,34 @@
 import { createClient } from "@supabase/supabase-js";
 
+export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
+
 type Database = {
   public: {
     Tables: {
+      dorm_states: {
+        Row: {
+          id: string;
+          dorm_code: string;
+          state_json: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id: string;
+          dorm_code: string;
+          state_json: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          dorm_code?: string;
+          state_json?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       users: {
         Row: {
           id: string;
@@ -48,9 +74,6 @@ export function getSupabase() {
 
   const supabaseUrl = process.env.SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-console.log("SUPABASE_URL:", supabaseUrl);
-console.log("SERVICE_ROLE:", serviceRoleKey);
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");

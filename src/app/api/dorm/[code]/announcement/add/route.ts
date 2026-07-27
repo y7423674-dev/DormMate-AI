@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { loadServerDormState, saveServerDormState } from "@/lib/serverStore";
 import { getSession } from "@/lib/session";
 import type { Announcement } from "@/data/types";
@@ -31,7 +31,7 @@ export async function POST(
     return NextResponse.json({ error: "公告标题和内容不能为空" }, { status: 400 });
   }
 
-  const state = loadServerDormState(code);
+  const state = await loadServerDormState(code);
   const authorMember = state.members.find((member) => member.name === session.nickname);
   const canPin = authorMember?.role === "leader";
   const shouldPin = pinned === true;
@@ -55,6 +55,6 @@ export async function POST(
     ? [announcement, ...state.announcements.map((item) => ({ ...item, pinned: false }))]
     : [announcement, ...state.announcements];
 
-  saveServerDormState(state);
+  await saveServerDormState(state);
   return NextResponse.json(state);
 }

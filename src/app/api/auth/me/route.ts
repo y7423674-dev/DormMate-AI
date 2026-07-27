@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { getUserByUsername, toUserSession } from "@/lib/authStore";
 import { loadServerDormState } from "@/lib/serverStore";
 import { getSession, setSession } from "@/lib/session";
@@ -15,7 +15,7 @@ export async function GET() {
   }
 
   const userSession = toUserSession(user);
-  const state = loadServerDormState(userSession.dormCode);
+  const state = await loadServerDormState(userSession.dormCode);
   const member = state.members.find((item) => item.name === userSession.nickname);
   const currentSession = member && member.role !== userSession.role
     ? { ...userSession, role: member.role }

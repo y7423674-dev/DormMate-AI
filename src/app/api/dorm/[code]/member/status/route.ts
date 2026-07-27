@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { loadServerDormState, saveServerDormState } from "@/lib/serverStore";
 
 export async function POST(
@@ -17,7 +17,7 @@ export async function POST(
     return NextResponse.json({ error: "状态不能超过四字" }, { status: 400 });
   }
 
-  const state = loadServerDormState(code);
+  const state = await loadServerDormState(code);
   const memberIndex = state.members.findIndex((member) => member.name === cleanUserName);
   if (memberIndex === -1) {
     return NextResponse.json({ error: "成员不存在" }, { status: 404 });
@@ -28,6 +28,6 @@ export async function POST(
     status: cleanStatus,
   };
 
-  saveServerDormState(state);
+  await saveServerDormState(state);
   return NextResponse.json(state);
 }

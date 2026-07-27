@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { loadServerDormState, saveServerDormState } from "@/lib/serverStore";
 
 export async function POST(
@@ -8,7 +8,7 @@ export async function POST(
   const { code } = await params;
   const { userName, slotIndex } = await request.json();
 
-  const state = loadServerDormState(code);
+  const state = await loadServerDormState(code);
   if (slotIndex === undefined || slotIndex === "") {
     const hasUserSlots = state.balcony.slots.some((slot) => slot.user === userName);
     if (!hasUserSlots) {
@@ -19,7 +19,7 @@ export async function POST(
       ...state.balcony,
       slots: state.balcony.slots.filter((slot) => slot.user !== userName),
     };
-    saveServerDormState(state);
+    await saveServerDormState(state);
     return NextResponse.json(state);
   }
 
@@ -38,6 +38,6 @@ export async function POST(
     ...state.balcony,
     slots: state.balcony.slots.filter((_, index) => index !== targetIndex),
   };
-  saveServerDormState(state);
+  await saveServerDormState(state);
   return NextResponse.json(state);
 }

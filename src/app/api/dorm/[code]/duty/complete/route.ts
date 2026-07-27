@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { loadServerDormState, saveServerDormState } from "@/lib/serverStore";
 
 export async function POST(
@@ -7,11 +7,11 @@ export async function POST(
 ) {
   const { code } = await params;
   const { userName } = await request.json();
-  const state = loadServerDormState(code);
+  const state = await loadServerDormState(code);
   if (state.todayDuty.user !== userName) {
     return NextResponse.json({ error: "只能完成自己的值日任务" }, { status: 403 });
   }
   state.todayDuty = { ...state.todayDuty, status: "已完成" };
-  saveServerDormState(state);
+  await saveServerDormState(state);
   return NextResponse.json(state);
 }

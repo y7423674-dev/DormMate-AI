@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { createEmptyDormState } from "@/data/mock";
 import { createUser, getUserByUsername, getUserCountByDormCode, toUserSession } from "@/lib/authStore";
 import { addOrUpdateDormMember, syncDormMemberDerivedState } from "@/lib/dormMembers";
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
     const isFirstDormUser = await getUserCountByDormCode(cleanDormCode) === 0;
     const state = isFirstDormUser
       ? createEmptyDormState(cleanDormCode)
-      : loadServerDormState(cleanDormCode);
+      : await loadServerDormState(cleanDormCode);
 
     const memberError = addOrUpdateDormMember(state, cleanUsername, requestedRole);
     if (memberError) {
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
     const user = await createUser(cleanUsername, cleanPassword, cleanDormCode, requestedRole);
     console.log("REGISTER createUser RESULT:", user);
 
-    const saveResult = saveServerDormState(state);
+    const saveResult = await saveServerDormState(state);
     console.log("REGISTER saveServerDormState RESULT:", saveResult);
 
     const session = toUserSession(user);

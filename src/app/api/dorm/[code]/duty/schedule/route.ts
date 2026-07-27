@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { loadServerDormState, saveServerDormState } from "@/lib/serverStore";
 import { addDays, formatShortDate, toDateISO } from "@/lib/dateUtils";
 
@@ -7,7 +7,7 @@ export async function POST(
   { params }: { params: Promise<{ code: string }> }
 ) {
   const { code } = await params;
-  const state = loadServerDormState(code);
+  const state = await loadServerDormState(code);
   const members = state.members;
 
   if (members.length === 0) {
@@ -45,6 +45,6 @@ export async function POST(
     suggestion: `${members.length}人轮换排班，本轮共${members.length}天`,
   };
 
-  saveServerDormState(state);
+  await saveServerDormState(state);
   return NextResponse.json(state);
 }

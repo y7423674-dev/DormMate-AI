@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { loadServerDormState, saveServerDormState } from "@/lib/serverStore";
 
 export async function POST(
@@ -8,12 +8,12 @@ export async function POST(
   const { code } = await params;
   const { announcementId } = await request.json();
 
-  const state = loadServerDormState(code);
+  const state = await loadServerDormState(code);
   state.announcements = state.announcements.map((a) =>
     a.id === announcementId
       ? { ...a, readByMe: true, readCount: a.readCount + 1 }
       : a
   );
-  saveServerDormState(state);
+  await saveServerDormState(state);
   return NextResponse.json(state);
 }

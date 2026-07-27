@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { authenticateUser, toUserSession } from "@/lib/authStore";
 import { loadServerDormState } from "@/lib/serverStore";
 import { setSession } from "@/lib/session";
@@ -22,6 +22,6 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({
     session,
-    state: loadServerDormState(session.dormCode),
+    state: await loadServerDormState(session.dormCode),
   });
 }
