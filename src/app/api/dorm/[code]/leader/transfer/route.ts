@@ -84,8 +84,8 @@ export async function POST(
     });
     state.leaderTransferRequests = state.leaderTransferRequests.filter((item) => item.id !== pending.id);
 
-    updateUserRole(pending.from, "member");
-    const updatedTarget = updateUserRole(pending.to, "leader");
+    await updateUserRole(pending.from, "member");
+    const updatedTarget = await updateUserRole(pending.to, "leader");
     const nextSession = {
       ...session,
       role: updatedTarget?.role || "leader",

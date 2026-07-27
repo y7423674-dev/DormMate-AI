@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  const existingUser = getUserByUsername(cleanNickname);
+  const existingUser = await getUserByUsername(cleanNickname);
   if (existingUser && existingUser.username !== session.nickname) {
     return NextResponse.json({ error: "该昵称已被使用" }, { status: 409 });
   }
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
   }
   syncDormMemberDerivedState(state);
 
-  const renamedUser = renameUser(session.nickname, cleanNickname);
+  const renamedUser = await renameUser(session.nickname, cleanNickname);
   if (!renamedUser) {
     return NextResponse.json({ error: "该昵称已被使用" }, { status: 409 });
   }

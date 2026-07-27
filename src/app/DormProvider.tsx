@@ -119,6 +119,12 @@ export function DormProvider({ children }: { children: ReactNode }) {
   const applyAuthResponse = useCallback(async (res: Response): Promise<string | null> => {
     const data = await res.json();
     if (!res.ok) {
+      if (data.error && typeof data.error === "object" && "message" in data.error) {
+        return String(data.error.message);
+      }
+      if (typeof data.error === "string") {
+        return data.error;
+      }
       return String(data.error || "操作失败，请稍后再试");
     }
 

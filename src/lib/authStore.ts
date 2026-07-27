@@ -1,7 +1,7 @@
 import { randomBytes, scrypt as scryptCallback, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
-import { getDatabase } from "@/lib/database";
 import type { UserSession } from "@/data/types";
+import { getSupabase } from "@/lib/supabase";
 
 const scrypt = promisify(scryptCallback);
 const KEY_LENGTH = 64;
@@ -30,6 +30,11 @@ function rowToUser(row: UserRow): AuthUser {
   };
 }
 
+function normalizeUserRow(row: UserRow | null): UserRow | null {
+  if (!row || !["member", "leader"].includes(row.role)) return null;
+  return row;
+}
+
 export async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(16).toString("hex");
   const derivedKey = (await scrypt(password, salt, KEY_LENGTH)) as Buffer;
@@ -46,56 +51,57 @@ export async function verifyPassword(password: string, passwordHash: string): Pr
   return timingSafeEqual(storedKey, derivedKey);
 }
 
-export function getUserByUsername(username: string): AuthUser | null {
-  const db = getDatabase();
-  const row = db
-    .prepare("SELECT id, username, password_hash, dorm_code, role FROM users WHERE username = ?")
-    .get(username) as UserRow | undefined;
-
+export async function getUserByUsername(username: string): Promise<AuthUser | null> {
+  const row = await getUserWithPassword(username);
   return row ? rowToUser(row) : null;
 }
 
-export function renameUser(oldUsername: string, newUsername: string): AuthUser | null {
-  const db = getDatabase();
-  const existing = getUserByUsername(newUsername);
+export async function renameUser(oldUsername: string, newUsername: string): Promise<AuthUser | null> {
+  const existing = await getUserByUsername(newUsername);
   if (existing && existing.username !== oldUsername) return null;
 
-  db.prepare(`
-    UPDATE users
-    SET username = ?, updated_at = datetime('now')
-    WHERE username = ?
-  `).run(newUsername, oldUsername);
+  const { error } = await getSupabase()
+    .from("users")
+    .update({ username: newUsername, updated_at: new Date().toISOString() })
+    .eq("username", oldUsername);
+
+  if (error) throw error;
 
   return getUserByUsername(newUsername);
 }
 
-export function updateUserRole(username: string, role: "member" | "leader"): AuthUser | null {
-  const db = getDatabase();
-  db.prepare(`
-    UPDATE users
-    SET role = ?, updated_at = datetime('now')
-    WHERE username = ?
-  `).run(role, username);
+export async function updateUserRole(username: string, role: "member" | "leader"): Promise<AuthUser | null> {
+  const { error } = await getSupabase()
+    .from("users")
+    .update({ role, updated_at: new Date().toISOString() })
+    .eq("username", username);
+
+  if (error) throw error;
 
   return getUserByUsername(username);
 }
 
-export function getUserCountByDormCode(dormCode: string): number {
-  const db = getDatabase();
-  const row = db
-    .prepare("SELECT COUNT(*) AS count FROM users WHERE dorm_code = ?")
-    .get(dormCode) as { count: number } | undefined;
+export async function getUserCountByDormCode(dormCode: string): Promise<number> {
+  const { count, error } = await getSupabase()
+    .from("users")
+    .select("id", { count: "exact", head: true })
+    .eq("dorm_code", dormCode);
 
-  return row?.count || 0;
+  if (error) throw error;
+
+  return count || 0;
 }
 
-export function getUserWithPassword(username: string): UserRow | null {
-  const db = getDatabase();
-  const row = db
-    .prepare("SELECT id, username, password_hash, dorm_code, role FROM users WHERE username = ?")
-    .get(username) as UserRow | undefined;
+export async function getUserWithPassword(username: string): Promise<UserRow | null> {
+  const { data, error } = await getSupabase()
+    .from("users")
+    .select("id, username, password_hash, dorm_code, role")
+    .eq("username", username)
+    .maybeSingle<UserRow>();
 
-  return row || null;
+  if (error) throw error;
+
+  return normalizeUserRow(data);
 }
 
 export async function createUser(
@@ -104,20 +110,29 @@ export async function createUser(
   dormCode: string,
   role: "member" | "leader"
 ): Promise<AuthUser> {
-  const db = getDatabase();
   const id = `user-${Date.now()}-${randomBytes(6).toString("hex")}`;
   const passwordHash = await hashPassword(password);
+  const now = new Date().toISOString();
 
-  db.prepare(`
-    INSERT INTO users (id, username, password_hash, dorm_code, role, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))
-  `).run(id, username, passwordHash, dormCode, role);
+  const { error } = await getSupabase()
+    .from("users")
+    .insert({
+      id,
+      username,
+      password_hash: passwordHash,
+      dorm_code: dormCode,
+      role,
+      created_at: now,
+      updated_at: now,
+    });
+
+  if (error) throw error;
 
   return { id, username, dormCode, role };
 }
 
 export async function authenticateUser(username: string, password: string): Promise<AuthUser | null> {
-  const row = getUserWithPassword(username);
+  const row = await getUserWithPassword(username);
   if (!row) return null;
 
   const valid = await verifyPassword(password, row.password_hash);
